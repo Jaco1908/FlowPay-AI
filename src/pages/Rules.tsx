@@ -1,0 +1,244 @@
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Play, Pause, Users, Coins, Calendar, Clock, Plus, RefreshCw } from 'lucide-react';
+import Header from '@/components/Header';
+import { supabase } from '@/lib/supabase';
+
+interface Rule {
+  id: string;
+  raw_text: string;
+  destinatarios: { nombre: string; wallet: string | null }[];
+  monto_por_persona: number;
+  moneda: string;
+  frecuencia: string | null;
+  dia_de_pago: string | null;
+  status: 'active' | 'paused';
+  created_at: string;
+  execution_count?: number;
+}
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+const FREQ_LABELS: Record<string, string> = {
+  'semanal':    'Semanal',
+  'mensual':    'Mensual',
+  'única vez':  'Única vez',
+  'weekly':     'Semanal',
+  'monthly':    'Mensual',
+};
+
+const DAY_LABELS: Record<string, string> = {
+  'lunes': 'Lunes', 'martes': 'Martes', 'miércoles': 'Miércoles',
+  'jueves': 'Jueves', 'viernes': 'Viernes', 'sábado': 'Sábado', 'domingo': 'Domingo',
+  'monday': 'Lunes', 'tuesday': 'Martes', 'wednesday': 'Miércoles',
+  'thursday': 'Jueves', 'friday': 'Viernes',
+};
+
+const Rules = () => {
+  const navigate = useNavigate();
+  const [rules, setRules] = useState<Rule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState<string | null>(null);
+
+  async function fetchRules() {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('rules')
+      .select('*, executions(count)')
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      const mapped = data.map((r: any) => ({
+        ...r,
+        execution_count: r.executions?.[0]?.count ?? 0,
+      }));
+      setRules(mapped);
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => { fetchRules(); }, []);
+
+  async function toggleStatus(rule: Rule) {
+    setToggling(rule.id);
+    const newStatus = rule.status === 'active' ? 'paused' : 'active';
+    const { error } = await supabase
+      .from('rules')
+      .update({ status: newStatus })
+      .eq('id', rule.id);
+
+    if (!error) {
+      setRules(prev => prev.map(r => r.id === rule.id ? { ...r, status: newStatus } : r));
+    }
+    setToggling(null);
+  }
+
+  const activeCount = rules.filter(r => r.status === 'active').length;
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      <Header />
+
+      <main className="flex-1 px-4 md:px-6 py-6 md:py-10">
+        <div className="max-w-3xl mx-auto">
+
+          {/* Header */}
+          <div className="flex items-start justify-between mb-6 md:mb-8">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-1">
+                Reglas activas
+              </h1>
+              <p className="text-muted-foreground text-sm">
+                {activeCount} de {rules.length} reglas ejecutándose automáticamente
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={fetchRules}
+                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => navigate('/')}
+                className="fp-btn-primary flex items-center gap-2 py-2 px-4 text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Nueva regla</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Content */}
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="fp-spinner mr-3" />
+              <span className="text-muted-foreground">Cargando reglas...</span>
+            </div>
+          ) : rules.length === 0 ? (
+            <div className="fp-card p-12 text-center">
+              <div className="w-14 h-14 rounded-full bg-muted/40 flex items-center justify-center mx-auto mb-4">
+                <Clock className="w-7 h-7 text-muted-foreground" />
+              </div>
+              <p className="text-foreground font-semibold mb-2">No hay reglas todavía</p>
+              <p className="text-muted-foreground text-sm mb-6">
+                Crea tu primera regla de pago automático
+              </p>
+              <button
+                onClick={() => navigate('/')}
+                className="fp-btn-primary py-2.5 px-6 text-sm"
+              >
+                + Crear primera regla
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {rules.map((rule) => (
+                <div
+                  key={rule.id}
+                  className={`fp-card p-5 transition-all ${
+                    rule.status === 'paused' ? 'opacity-60' : ''
+                  }`}
+                >
+                  {/* Top row */}
+                  <div className="flex items-start justify-between gap-4 mb-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-foreground font-medium text-sm leading-relaxed line-clamp-2">
+                        "{rule.raw_text}"
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Status badge */}
+                      <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
+                        rule.status === 'active'
+                          ? 'bg-green-500/15 text-green-400'
+                          : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {rule.status === 'active' ? '● Activa' : '○ Pausada'}
+                      </span>
+                      {/* Toggle button */}
+                      <button
+                        onClick={() => toggleStatus(rule)}
+                        disabled={toggling === rule.id}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          rule.status === 'active'
+                            ? 'bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground'
+                            : 'bg-green-500/15 hover:bg-green-500/25 text-green-400'
+                        }`}
+                      >
+                        {toggling === rule.id ? (
+                          <div className="fp-spinner w-3 h-3" />
+                        ) : rule.status === 'active' ? (
+                          <><Pause className="w-3 h-3" /> Pausar</>
+                        ) : (
+                          <><Play className="w-3 h-3" /> Activar</>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Details grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-muted/30 rounded-lg px-3 py-2">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Users className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Destinatarios</span>
+                      </div>
+                      <p className="text-sm font-medium text-foreground">
+                        {rule.destinatarios?.map(d => capitalize(d.nombre)).join(', ') || '—'}
+                      </p>
+                    </div>
+
+                    <div className="bg-muted/30 rounded-lg px-3 py-2">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Coins className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Monto</span>
+                      </div>
+                      <p className="text-sm font-semibold text-green-400">
+                        {rule.monto_por_persona} {rule.moneda || 'USDC'}
+                      </p>
+                    </div>
+
+                    <div className="bg-muted/30 rounded-lg px-3 py-2">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Clock className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Frecuencia</span>
+                      </div>
+                      <p className="text-sm font-medium text-foreground">
+                        {FREQ_LABELS[rule.frecuencia || ''] || rule.frecuencia || '—'}
+                      </p>
+                    </div>
+
+                    <div className="bg-muted/30 rounded-lg px-3 py-2">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Calendar className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Día de pago</span>
+                      </div>
+                      <p className="text-sm font-medium text-foreground">
+                        {DAY_LABELS[rule.dia_de_pago || ''] || rule.dia_de_pago || '—'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/50">
+                    <span className="text-xs text-muted-foreground">
+                      Creada {new Date(rule.created_at).toLocaleDateString('es', {
+                        day: '2-digit', month: 'short', year: 'numeric'
+                      })}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {rule.execution_count} ejecuciones
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default Rules;

@@ -1,12 +1,14 @@
 import React from 'react';
-import { Zap, Clock, Home, Wallet } from 'lucide-react';
+import { Zap, Clock, Home, Wallet, Repeat2, Users, LogOut } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useWalletBalance } from '@/hooks/use-wallet-balance';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { balance, loading } = useWalletBalance();
+  const { logout } = useAuth();
 
   return (
     <header className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-border/60">
@@ -38,6 +40,28 @@ const Header = () => {
           <span className="hidden sm:inline">Inicio</span>
         </button>
         <button
+          onClick={() => navigate('/rules')}
+          className={`flex items-center gap-1.5 px-2.5 md:px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            location.pathname === '/rules'
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+          }`}
+        >
+          <Repeat2 className="w-4 h-4" />
+          <span className="hidden sm:inline">Reglas</span>
+        </button>
+        <button
+          onClick={() => navigate('/team')}
+          className={`flex items-center gap-1.5 px-2.5 md:px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            location.pathname === '/team'
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span className="hidden sm:inline">Equipo</span>
+        </button>
+        <button
           onClick={() => navigate('/history')}
           className={`flex items-center gap-1.5 px-2.5 md:px-4 py-2 rounded-lg text-sm font-medium transition-all ${
             location.pathname === '/history'
@@ -59,7 +83,7 @@ const Header = () => {
             <span className="text-xs text-muted-foreground animate-pulse">...</span>
           ) : balance !== null ? (
             <span className="text-xs font-semibold text-foreground">
-              {balance.toFixed(3)} SOL
+              {balance.toFixed(4)} SOL
             </span>
           ) : (
             <span className="text-xs text-muted-foreground">—</span>
@@ -68,6 +92,13 @@ const Header = () => {
         <div className="fp-badge hidden sm:flex">
           <span className="text-muted-foreground text-xs">Devnet</span>
         </div>
+        <button
+          onClick={() => { logout(); navigate('/login'); }}
+          className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all"
+          title="Cerrar sesión"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
       </div>
     </header>
   );

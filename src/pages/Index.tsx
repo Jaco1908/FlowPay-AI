@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, AlertCircle, Clock } from 'lucide-react';
+import { Zap, AlertCircle, Clock, X, Users } from 'lucide-react';
 import Header from '@/components/Header';
 import { parseRule } from '@/api/rules/parse';
 
@@ -18,6 +18,7 @@ const Index = () => {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   const handleAnalyze = async () => {
     if (!text.trim() || loading) return;
@@ -29,7 +30,8 @@ const Index = () => {
       sessionStorage.setItem('parsedRule', JSON.stringify(parsed));
       navigate('/confirm');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al analizar la instrucción');
+      const msg = err instanceof Error ? err.message : 'Error al analizar la instrucción';
+      setModalError(msg);
     } finally {
       setLoading(false);
     }
@@ -38,6 +40,39 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
+
+      {/* Modal error nombre ambiguo */}
+      {modalError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
+          <div className="fp-card w-full max-w-md p-6 animate-fade-in">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-yellow-500/15 flex items-center justify-center shrink-0">
+                  <Users className="w-5 h-5 text-yellow-400" />
+                </div>
+                <h2 className="text-lg font-bold text-foreground">Nombre ambiguo</h2>
+              </div>
+              <button
+                onClick={() => setModalError(null)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-muted-foreground text-sm leading-relaxed mb-6">
+              {modalError}
+            </p>
+
+            <button
+              onClick={() => setModalError(null)}
+              className="fp-btn-primary w-full py-3 text-sm"
+            >
+              Entendido — voy a corregirlo
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Glow effect */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] pointer-events-none"

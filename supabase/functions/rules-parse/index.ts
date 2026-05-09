@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,11 +7,59 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const DEMO_WALLETS: Record<string, string> = {
-  ana: "9T6FswBKsFy72ZE8NMfwZmAjxhV25RhfToh3AQUae5bx",
-  luis: "6ALa8gVLB89oYCar8Q2DJ3zwbngjka5z3RMQy542jNu9",
-  carlos: "GT2dTf1agW353aNeTSg5hEGVJA3QSSGEqsgMHDpchCTx",
-};
+interface Employee {
+  nombre: string;
+  wallet: string;
+}
+
+async function getEmployeesFromDB(): Promise<Employee[]> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+
+  const { data } = await supabase
+    .from("employees")
+    .select("nombre, wallet")
+    .eq("role", "employee")
+    .not("wallet", "is", null);
+
+  return (data || []) as Employee[];
+}
+
+interface MatchResult {
+  wallet: string | null;
+  ambiguous: boolean;
+  matches: string[];
+}
+
+function findWallet(nombre: string, employees: Employee[]): MatchResult {
+  const search = nombre.toLowerCase().trim();
+  const found: Employee[] = [];
+
+  for (const emp of employees) {
+    const fullName = emp.nombre.toLowerCase().trim();
+    const firstName = fullName.split(" ")[0];
+
+    if (
+      fullName === search ||
+      firstName === search ||
+      (firstName.startsWith(search) && search.length >= 3) ||
+      (search.startsWith(firstName) && firstName.length >= 3)
+    ) {
+      found.push(emp);
+    }
+  }
+
+  if (found.length === 0) return { wallet: null, ambiguous: false, matches: [] };
+  if (found.length === 1) return { wallet: found[0].wallet, ambiguous: false, matches: [] };
+
+  // Más de uno — ambiguo
+  return {
+    wallet: null,
+    ambiguous: true,
+    matches: found.map(e => e.nombre),
+  };
+}
 
 const SYSTEM_PROMPT = `Eres un analizador de instrucciones de pago cripto.
 Extrae del texto del usuario estos campos en formato JSON:
@@ -96,12 +145,28 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    const employees = await getEmployeesFromDB();
+    const ambiguousNames: { nombre: string; matches: string[] }[] = [];
+
     const destinatariosConWallet = (parsed.destinatarios || []).map(
-      (nombre: string) => ({
-        nombre,
-        wallet: DEMO_WALLETS[nombre.toLowerCase()] || null,
-      })
+      (nombre: string) => {
+        const result = findWallet(nombre, employees);
+        if (result.ambiguous) {
+          ambiguousNames.push({ nombre, matches: result.matches });
+        }
+        return { nombre, wallet: result.wallet };
+      }
     );
+
+    if (ambiguousNames.length > 0) {
+      const msg = ambiguousNames.map(a =>
+        `"${a.nombre}" puede ser: ${a.matches.join(" o ")}`
+      ).join(". ");
+      return new Response(
+        JSON.stringify({ error: `Nombre ambiguo — ${msg}. Por favor usa el nombre completo.` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const result = {
       destinatarios: parsed.destinatarios || [],
