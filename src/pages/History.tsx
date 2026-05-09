@@ -83,7 +83,7 @@ const History = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
 
-      <main className="flex-1 px-6 py-10">
+      <main className="flex-1 px-4 md:px-6 py-6 md:py-10">
         <div className="max-w-5xl mx-auto">
 
           {/* Back button */}
@@ -102,7 +102,7 @@ const History = () => {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-3 gap-2 md:gap-4 mb-6 md:mb-8">
             <div className="fp-card p-5 text-center">
               <p className="text-3xl font-bold text-foreground">{rows.length}</p>
               <p className="text-sm text-muted-foreground mt-1">Transacciones totales</p>
@@ -136,88 +136,106 @@ const History = () => {
                 </button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Destinatario</th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Monto</th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Estado</th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hash</th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Fecha</th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Explorer</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {rows.map((row) => (
-                      <tr key={row.id} className="hover:bg-muted/20 transition-colors">
-                        <td className="px-5 py-4">
-                          <div>
-                            <p className="text-foreground font-medium capitalize">{row.destinatario_nombre}</p>
-                            {row.destinatario_wallet && (
-                              <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                                {truncateWallet(row.destinatario_wallet)}
-                              </p>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-5 py-4">
-                          <span className="text-green-400 font-semibold">
-                            {row.monto} {row.rules?.moneda || 'USDC'}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4">
-                          {row.status === 'completed' ? (
-                            <span className="fp-badge-success text-xs px-2.5 py-1 rounded-full font-medium">
-                              ✓ Confirmado
-                            </span>
-                          ) : (
-                            <span className="fp-badge-error text-xs px-2.5 py-1 rounded-full font-medium">
-                              ✗ Error
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-5 py-4">
-                          {row.tx_hash ? (
-                            <div className="flex items-center">
-                              <code className="text-xs font-mono text-muted-foreground">
-                                {truncateHash(row.tx_hash)}
-                              </code>
-                              <CopyButton text={row.tx_hash} />
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-4">
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(row.executed_at).toLocaleDateString('es', {
-                              day: '2-digit',
-                              month: 'short',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4">
-                          {row.tx_hash ? (
-                            <a
-                              href={`https://explorer.solana.com/tx/${row.tx_hash}?cluster=devnet`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                            >
-                              Ver <ExternalLink className="w-3 h-3" />
-                            </a>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </td>
+              <>
+                {/* Tabla — solo en desktop */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Destinatario</th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Monto</th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Estado</th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hash</th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Fecha</th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Explorer</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {rows.map((row) => (
+                        <tr key={row.id} className="hover:bg-muted/20 transition-colors">
+                          <td className="px-5 py-4">
+                            <div>
+                              <p className="text-foreground font-medium capitalize">{row.destinatario_nombre}</p>
+                              {row.destinatario_wallet && (
+                                <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                                  {truncateWallet(row.destinatario_wallet)}
+                                </p>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className="text-green-400 font-semibold">
+                              {row.monto} {row.rules?.moneda || 'USDC'}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4">
+                            {row.status === 'completed' ? (
+                              <span className="fp-badge-success text-xs px-2.5 py-1 rounded-full font-medium">✓ Confirmado</span>
+                            ) : (
+                              <span className="fp-badge-error text-xs px-2.5 py-1 rounded-full font-medium">✗ Error</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-4">
+                            {row.tx_hash ? (
+                              <div className="flex items-center">
+                                <code className="text-xs font-mono text-muted-foreground">{truncateHash(row.tx_hash)}</code>
+                                <CopyButton text={row.tx_hash} />
+                              </div>
+                            ) : <span className="text-xs text-muted-foreground">—</span>}
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(row.executed_at).toLocaleDateString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4">
+                            {row.tx_hash ? (
+                              <a href={`https://explorer.solana.com/tx/${row.tx_hash}?cluster=devnet`} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                                Ver <ExternalLink className="w-3 h-3" />
+                              </a>
+                            ) : <span className="text-xs text-muted-foreground">—</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Cards — solo en móvil */}
+                <div className="md:hidden divide-y divide-border">
+                  {rows.map((row) => (
+                    <div key={row.id} className="p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-foreground font-semibold capitalize">{row.destinatario_nombre}</p>
+                          <p className="text-green-400 font-bold">{row.monto} {row.rules?.moneda || 'USDC'}</p>
+                        </div>
+                        {row.status === 'completed' ? (
+                          <span className="fp-badge-success text-xs px-2.5 py-1 rounded-full font-medium">✓ Confirmado</span>
+                        ) : (
+                          <span className="fp-badge-error text-xs px-2.5 py-1 rounded-full font-medium">✗ Error</span>
+                        )}
+                      </div>
+                      {row.tx_hash && (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1">
+                            <code className="text-xs font-mono text-muted-foreground">{truncateHash(row.tx_hash)}</code>
+                            <CopyButton text={row.tx_hash} />
+                          </div>
+                          <a href={`https://explorer.solana.com/tx/${row.tx_hash}?cluster=devnet`} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                            Explorer <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(row.executed_at).toLocaleDateString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
 

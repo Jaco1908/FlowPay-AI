@@ -1,8 +1,27 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, XCircle, ExternalLink, Copy, Check } from 'lucide-react';
+import { CheckCircle2, ExternalLink, Copy, Check } from 'lucide-react';
 import Header from '@/components/Header';
 import type { ExecuteResult, ExecutionItem } from '@/types';
+
+const CONFETTI_COLORS = ['#3B82F6', '#22C55E', '#7C3AED', '#F59E0B', '#EC4899'];
+
+function launchConfetti() {
+  const count = 80;
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.left = `${Math.random() * 100}vw`;
+    el.style.background = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+    el.style.width = `${6 + Math.random() * 8}px`;
+    el.style.height = `${6 + Math.random() * 8}px`;
+    el.style.animationDuration = `${2 + Math.random() * 2}s`;
+    el.style.animationDelay = `${Math.random() * 0.8}s`;
+    el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+}
 
 const truncateHash = (hash: string) => {
   if (!hash || hash.length < 30) return hash;
@@ -92,6 +111,7 @@ const TxCard = ({ item, index }: { item: ExecutionItem; index: number }) => {
 const Success = () => {
   const navigate = useNavigate();
   const [result, setResult] = useState<ExecuteResult | null>(null);
+  const confettiFired = useRef(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem('execResult');
@@ -100,7 +120,13 @@ const Success = () => {
       return;
     }
     try {
-      setResult(JSON.parse(stored));
+      const parsed = JSON.parse(stored);
+      setResult(parsed);
+      const hasSuccess = parsed.executions?.some((e: ExecutionItem) => e.status === 'success');
+      if (hasSuccess && !confettiFired.current) {
+        confettiFired.current = true;
+        setTimeout(launchConfetti, 300);
+      }
     } catch {
       navigate('/');
     }
@@ -118,9 +144,11 @@ const Success = () => {
         <div className="max-w-xl mx-auto">
           {/* Hero */}
           <div className="text-center mb-10 animate-fade-in">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-5"
-              style={{ background: 'hsl(142 71% 45% / 0.12)' }}>
-              <CheckCircle2 className="w-8 h-8 text-success" />
+            <div
+              className="inline-flex items-center justify-center w-20 h-20 rounded-full mb-5 animate-check-pop animate-glow-pulse"
+              style={{ background: 'hsl(142 71% 45% / 0.15)' }}
+            >
+              <CheckCircle2 className="w-10 h-10 text-success" />
             </div>
             <h1 className="text-3xl font-bold text-foreground mb-2 tracking-tight">
               ¡Pagos ejecutados en Solana!

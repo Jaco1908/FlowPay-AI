@@ -5,9 +5,12 @@ import Header from '@/components/Header';
 import { parseRule } from '@/api/rules/parse';
 
 const EXAMPLES = [
-  'Paga 50 USDC a Ana, Luis y Carlos cada viernes',
-  'Envía 100 USDC a luis los lunes',
-  'Paga 25 USDC a carlos hoy',
+  { text: 'Paga 50 USDC a Ana, Luis y Carlos cada viernes', lang: 'ES' },
+  { text: 'Envía 100 USDC a luis los lunes', lang: 'ES' },
+  { text: 'Paga 25 USDC a carlos hoy', lang: 'ES' },
+  { text: 'Pay 50 USDC to Ana, Luis and Carlos every Friday', lang: 'EN' },
+  { text: 'Send 100 USDC to luis every monday', lang: 'EN' },
+  { text: 'Pay 25 USDC to carlos today', lang: 'EN' },
 ];
 
 const Index = () => {
@@ -46,7 +49,7 @@ const Index = () => {
           <div className="flex justify-center mb-6">
             <div className="fp-badge gap-2">
               <Zap className="w-3.5 h-3.5 text-primary" />
-              <span>Powered by Solana + Claude AI</span>
+              <span>Powered by Solana + Groq AI</span>
             </div>
           </div>
 
@@ -88,7 +91,7 @@ const Index = () => {
                 <span>Analizando con IA...</span>
               </>
             ) : (
-              <span>Analizar instrucci��n →</span>
+              <span>Analizar instrucción →</span>
             )}
           </button>
 
@@ -114,17 +117,23 @@ const Index = () => {
           {/* Examples */}
           <div className="mt-8">
             <p className="text-xs text-muted-foreground/60 text-center mb-3 uppercase tracking-wider font-medium">
-              Prueba un ejemplo
+              Prueba un ejemplo · Try an example
             </p>
-            <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {EXAMPLES.map((example, i) => (
                 <button
                   key={i}
-                  onClick={() => setText(example)}
-                  className="text-left text-sm text-muted-foreground hover:text-foreground px-4 py-2.5 rounded-lg border border-transparent hover:border-border hover:bg-card/50 transition-all duration-200"
+                  onClick={() => setText(example.text)}
+                  className="text-left text-sm text-muted-foreground hover:text-foreground px-4 py-2.5 rounded-lg border border-transparent hover:border-border hover:bg-card/50 transition-all duration-200 flex items-start gap-2"
                 >
-                  <span className="text-primary/60 mr-2">→</span>
-                  "{example}"
+                  <span className={`shrink-0 text-xs font-bold px-1.5 py-0.5 rounded mt-0.5 ${
+                    example.lang === 'EN'
+                      ? 'bg-blue-500/20 text-blue-400'
+                      : 'bg-green-500/20 text-green-400'
+                  }`}>
+                    {example.lang}
+                  </span>
+                  <span>"{example.text}"</span>
                 </button>
               ))}
             </div>
