@@ -6,8 +6,8 @@ import {
   PublicKey,
   SystemProgram,
   Transaction,
-} from "npm:@solana/web3.js@1.98.2";
-import bs58 from "npm:bs58@6.0.0";
+} from "npm:@solana/web3.js@1.87.6";
+import bs58 from "npm:bs58@5.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,11 +32,6 @@ function getEmpresaKeypair(): Keypair {
   const decoded = bs58.decode(privateKey);
   return Keypair.fromSecretKey(decoded);
 }
-
-const CONNECTION = new Connection(
-  "https://api.devnet.solana.com",
-  "confirmed"
-);
 
 interface DestinatarioConWallet {
   nombre: string;
@@ -79,6 +74,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const body: ParsedRuleBody = await req.json();
+    const CONNECTION = new Connection("https://api.devnet.solana.com", "confirmed");
 
     // 0. Balance check — fail fast before touching the DB
     const empresaKeypairCheck = getEmpresaKeypair();
@@ -103,7 +99,7 @@ Deno.serve(async (req: Request) => {
         raw_text: body.textoOriginal,
         destinatarios: body.destinatariosConWallet,
         monto_por_persona: body.monto_por_persona,
-        moneda: body.moneda || "USDC",
+        moneda: body.moneda || "SOL",
         frecuencia: body.frecuencia,
         dia_de_pago: body.dia_de_pago,
         status: "active",
@@ -134,7 +130,7 @@ Deno.serve(async (req: Request) => {
           nombre: dest.nombre,
           wallet: "",
           monto: body.monto_por_persona,
-          moneda: body.moneda || "USDC",
+          moneda: body.moneda || "SOL",
           tx_hash: "",
           explorer_url: "",
           status: "error",
@@ -186,7 +182,7 @@ Deno.serve(async (req: Request) => {
           nombre: dest.nombre,
           wallet: dest.wallet,
           monto: body.monto_por_persona,
-          moneda: body.moneda || "USDC",
+          moneda: body.moneda || "SOL",
           tx_hash: signature,
           explorer_url: `https://explorer.solana.com/tx/${signature}?cluster=devnet`,
           status: "success",
@@ -208,7 +204,7 @@ Deno.serve(async (req: Request) => {
           nombre: dest.nombre,
           wallet: dest.wallet || "",
           monto: body.monto_por_persona,
-          moneda: body.moneda || "USDC",
+          moneda: body.moneda || "SOL",
           tx_hash: "",
           explorer_url: "",
           status: "error",

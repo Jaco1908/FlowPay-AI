@@ -187,7 +187,7 @@ const Success = () => {
 
           {/* Footer */}
           <p className="text-center text-xs text-muted-foreground/50">
-            Red: Solana Devnet &bull; Powered by Claude AI
+            Red: Solana Devnet &bull; Powered by Groq AI
           </p>
         </div>
       </main>

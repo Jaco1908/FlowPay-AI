@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Pause, Users, Coins, Calendar, Clock, Plus, RefreshCw, Trash2, List } from 'lucide-react';
+import { Play, Pause, Users, Coins, Calendar, Clock, Plus, RefreshCw, Trash2, List, ExternalLink } from 'lucide-react';
 import Header from '@/components/Header';
 import { supabase } from '@/lib/supabase';
 
@@ -31,7 +31,23 @@ interface Rule {
   dia_de_pago: string | null;
   status: 'active' | 'paused';
   created_at: string;
+  last_executed_at?: string | null;
   execution_count?: number;
+}
+
+interface SchedulerExecution {
+  nombre: string;
+  tx_hash?: string;
+  explorer_url?: string;
+  status: 'success' | 'error';
+  error?: string;
+}
+
+interface RunResult {
+  processed: number;
+  results: Array<{ rule_id: string; raw_text: string; executions: SchedulerExecution[] }>;
+  timestamp?: string;
+  error?: string;
 }
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -58,6 +74,8 @@ const Rules = () => {
   const [toggling, setToggling] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Rule | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [runResult, setRunResult] = useState<RunResult | null>(null);
   const [view, setView] = useState<'list' | 'calendar'>('calendar');
 
   async function fetchRules() {
@@ -78,6 +96,30 @@ const Rules = () => {
   }
 
   useEffect(() => { fetchRules(); }, []);
+
+  async function runScheduler() {
+    setRunning(true);
+    setRunResult(null);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scheduler`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      const data = await res.json();
+      setRunResult(data);
+      await fetchRules();
+    } catch {
+      setRunResult({ processed: 0, results: [], error: 'Error de red al contactar el scheduler.' });
+    } finally {
+      setRunning(false);
+    }
+  }
 
   async function toggleStatus(rule: Rule) {
     setToggling(rule.id);
@@ -172,6 +214,19 @@ const Rules = () => {
               >
                 <RefreshCw className="w-4 h-4" />
               </button>
+              <button
+                onClick={runScheduler}
+                disabled={running}
+                title="Ejecutar el scheduler manualmente ahora"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {running ? (
+                  <div className="fp-spinner w-3.5 h-3.5" />
+                ) : (
+                  <Play className="w-3.5 h-3.5 fill-amber-400" />
+                )}
+                <span className="hidden sm:inline">{running ? 'Ejecutando...' : 'Ejecutar ahora'}</span>
+              </button>
               {/* Toggle vista */}
               <div className="flex rounded-lg border border-border overflow-hidden">
                 <button
@@ -202,6 +257,52 @@ const Rules = () => {
               </button>
             </div>
           </div>
+
+          {/* Scheduler result banner */}
+          {runResult && (
+            <div className={`mb-6 rounded-xl border p-4 text-sm transition-all ${
+              runResult.error
+                ? 'border-destructive/30 bg-destructive/5'
+                : runResult.processed === 0
+                  ? 'border-border/50 bg-muted/20'
+                  : 'border-green-500/30 bg-green-500/5'
+            }`}>
+              {runResult.error ? (
+                <p className="text-destructive">{runResult.error}</p>
+              ) : runResult.processed === 0 ? (
+                <p className="text-muted-foreground">
+                  No hay reglas para ejecutar ahora — verifica que el día y frecuencia coincidan con hoy.
+                </p>
+              ) : (
+                <div>
+                  <p className="font-semibold text-green-400 mb-3">
+                    ✓ {runResult.processed} regla{runResult.processed !== 1 ? 's' : ''} ejecutada{runResult.processed !== 1 ? 's' : ''}
+                  </p>
+                  <div className="space-y-2">
+                    {runResult.results.flatMap(r => r.executions).map((exec, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs gap-3">
+                        <span className={exec.status === 'success' ? 'text-foreground' : 'text-destructive'}>
+                          {exec.status === 'success' ? '✓' : '✗'} {exec.nombre}
+                          {exec.error && <span className="text-muted-foreground ml-1">— {exec.error}</span>}
+                        </span>
+                        {exec.explorer_url && (
+                          <a
+                            href={exec.explorer_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline flex items-center gap-1 shrink-0"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            Ver tx
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Calendar view */}
           {!loading && view === 'calendar' && (
@@ -253,7 +354,7 @@ const Rules = () => {
                                 <p className={`text-[10px] font-bold mb-0.5 ${
                                   rule.status === 'active' ? 'text-green-400' : 'text-muted-foreground'
                                 }`}>
-                                  {rule.monto_por_persona} {rule.moneda || 'SOL'}
+                                  {rule.monto_por_persona} SOL
                                 </p>
                                 {rule.destinatarios?.slice(0, 3).map((d, i) => (
                                   <p key={i} className="text-[10px] text-muted-foreground truncate capitalize">
@@ -292,7 +393,7 @@ const Rules = () => {
                       <div key={rule.id} className="flex items-center justify-between">
                         <p className="text-sm text-muted-foreground truncate flex-1">"{rule.raw_text}"</p>
                         <span className="text-xs text-primary ml-3 shrink-0">
-                          {rule.monto_por_persona} {rule.moneda || 'SOL'} · {FREQ_LABELS[rule.frecuencia || ''] || rule.frecuencia}
+                          {rule.monto_por_persona} SOL · {FREQ_LABELS[rule.frecuencia || ''] || rule.frecuencia}
                         </span>
                       </div>
                     ))}
@@ -395,7 +496,7 @@ const Rules = () => {
                         <span className="text-xs text-muted-foreground">Monto</span>
                       </div>
                       <p className="text-sm font-semibold text-green-400">
-                        {rule.monto_por_persona} {rule.moneda || 'SOL'}
+                        {rule.monto_por_persona} SOL
                       </p>
                     </div>
 

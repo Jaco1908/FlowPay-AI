@@ -167,7 +167,7 @@ Deno.serve(async (req: Request) => {
     const groqData = await groqResponse.json();
     const responseText = groqData.choices?.[0]?.message?.content || "";
 
-    // Clean response in case Gemini wraps it in markdown code block
+    // Clean response in case Groq wraps it in markdown code block
     const cleanedText = responseText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 
     let parsed: {

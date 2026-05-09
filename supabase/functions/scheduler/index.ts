@@ -6,16 +6,14 @@ import {
   PublicKey,
   SystemProgram,
   Transaction,
-} from "npm:@solana/web3.js@1.98.2";
-import bs58 from "npm:bs58@6.0.0";
+} from "npm:@solana/web3.js@1.87.6";
+import bs58 from "npm:bs58@5.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
-
-const CONNECTION = new Connection("https://api.devnet.solana.com", "confirmed");
 
 const DAY_MAP: Record<string, number> = {
   domingo: 0, lunes: 1, martes: 2, "miércoles": 3,
@@ -48,6 +46,7 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
+  const CONNECTION = new Connection("https://api.devnet.solana.com", "confirmed");
   const supabase = getSupabase();
   const now = new Date();
   const todayDayNumber = now.getDay();
