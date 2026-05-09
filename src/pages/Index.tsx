@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, AlertCircle, Clock, X, Users, UserPlus, Mail, Wallet, Lock, CheckCircle2, CreditCard } from 'lucide-react';
+import {
+  Zap, AlertCircle, Clock, X, Users, UserPlus, Mail, Wallet,
+  Lock, CheckCircle2, CreditCard, ShieldCheck, ShieldAlert,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from '@/components/Header';
 import { parseRule } from '@/api/rules/parse';
@@ -9,6 +12,7 @@ import { hashPassword } from '@/lib/crypto';
 import type { ParsedRule } from '@/types';
 
 const BASE58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const DIAS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 
 const QUICK_CHIPS = [
   {
@@ -36,6 +40,12 @@ const EXAMPLES = [
   { text: 'Send 0.1 SOL to luis every monday', lang: 'EN' },
 ];
 
+const HELP_PATTERNS =
+  /^(hola|hello|hi|hey|buenos\s+días?|buenas|buen\s+día|qué\s+puedes|que\s+puedes|what\s+can|ayuda|help|cómo\s+funciona|como\s+funciona|qué\s+eres|que\s+eres|qué\s+haces|que\s+haces|para\s+qué|para\s+que|info|información)[\s.,!?]*/i;
+
+const HELP_DEFAULT =
+  'Puedo hacer 3 cosas por ti: 1) Pagar nómina — transfiero SOL a tu equipo con una frase. 2) Generar facturas — creo y rastreo cobros a tus clientes. 3) Convertir cripto a fiat — convierto tu SOL a dinero en tu cuenta bancaria. ¿Por dónde quieres empezar?';
+
 interface MissingForm {
   nombre: string;
   email: string;
@@ -45,64 +55,147 @@ interface MissingForm {
   created: boolean;
 }
 
+interface MissingField {
+  field: string;
+  label: string;
+  type: 'text' | 'number' | 'select';
+  options?: string[];
+  placeholder?: string;
+  value: string;
+}
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function getMissingFields(parsed: ParsedRule): MissingField[] {
+  const fields: MissingField[] = [];
+  if (parsed.intent === 'pago') {
+    if (!parsed.destinatarios?.length)
+      fields.push({
+        field: 'destinatarios',
+        label: '¿A quién vas a pagar? (separa con comas)',
+        type: 'text',
+        placeholder: 'Ana, Luis, Carlos',
+        value: '',
+      });
+    if (!parsed.monto_por_persona)
+      fields.push({
+        field: 'monto_por_persona',
+        label: 'Monto por persona (SOL)',
+        type: 'number',
+        placeholder: '0.05',
+        value: '',
+      });
+    if (parsed.frecuencia === 'semanal' && !parsed.dia_de_pago)
+      fields.push({
+        field: 'dia_de_pago',
+        label: 'Día de pago semanal',
+        type: 'select',
+        options: DIAS,
+        value: '',
+      });
+  } else if (parsed.intent === 'factura') {
+    if (!parsed.cliente)
+      fields.push({
+        field: 'cliente',
+        label: 'Nombre del cliente o empresa',
+        type: 'text',
+        placeholder: 'Acme Inc.',
+        value: '',
+      });
+    if (!parsed.monto_factura)
+      fields.push({
+        field: 'monto_factura',
+        label: 'Monto de la factura (USD)',
+        type: 'number',
+        placeholder: '1500',
+        value: '',
+      });
+  } else if (parsed.intent === 'offramp') {
+    if (!parsed.monto_offramp && !parsed.monto_por_persona)
+      fields.push({
+        field: 'monto_offramp',
+        label: 'Cantidad a convertir (SOL)',
+        type: 'number',
+        placeholder: '2',
+        value: '',
+      });
+  }
+  return fields;
+}
+
+function buildInstruction(parsed: ParsedRule, fields: MissingField[]): string {
+  const map: Record<string, string> = {};
+  fields.forEach(f => { map[f.field] = f.value; });
+
+  if (parsed.intent === 'pago') {
+    const nombres = map.destinatarios || (parsed.destinatarios || []).join(', ');
+    const monto = map.monto_por_persona || parsed.monto_por_persona || '';
+    const freq = parsed.frecuencia || 'única vez';
+    const dia = map.dia_de_pago || parsed.dia_de_pago || '';
+    return `Paga ${monto} SOL a ${nombres}${freq !== 'única vez' ? ` ${freq}${dia ? ` cada ${dia}` : ''}` : ''}`;
+  }
+  return '';
+}
+
+function buildAITitle(parsed: ParsedRule): string {
+  if (parsed.intent === 'pago') return parsed.frecuencia ? 'Detecté un pago recurrente:' : 'Detecté un pago puntual:';
+  if (parsed.intent === 'factura') return 'Voy a crear una factura:';
+  if (parsed.intent === 'offramp') return 'Voy a convertir cripto a fiat:';
+  return 'Entendido:';
+}
+
+function buildAILines(parsed: ParsedRule): { label: string; value: string }[] {
+  if (parsed.intent === 'pago') {
+    const lines: { label: string; value: string }[] = [];
+    if (parsed.monto_por_persona)
+      lines.push({ label: 'Monto por persona', value: `${parsed.monto_por_persona} ${parsed.moneda || 'SOL'}` });
+    if (parsed.frecuencia)
+      lines.push({ label: 'Frecuencia', value: cap(parsed.frecuencia) });
+    if (parsed.dia_de_pago)
+      lines.push({ label: 'Día de pago', value: cap(parsed.dia_de_pago) });
+    if (parsed.monto_por_persona && parsed.destinatarios?.length) {
+      const total = parsed.monto_por_persona * parsed.destinatarios.length;
+      const fmt = Number.isInteger(total) ? total.toString() : total.toFixed(4).replace(/\.?0+$/, '');
+      lines.push({ label: 'Total', value: `${fmt} ${parsed.moneda || 'SOL'}` });
+    }
+    return lines;
+  }
+  if (parsed.intent === 'factura') {
+    const lines: { label: string; value: string }[] = [];
+    if (parsed.cliente) lines.push({ label: 'Cliente', value: parsed.cliente });
+    if (parsed.monto_factura) lines.push({ label: 'Monto', value: `${parsed.monto_factura} ${parsed.moneda_factura || 'USD'}` });
+    if (parsed.descripcion_factura) lines.push({ label: 'Descripción', value: parsed.descripcion_factura });
+    return lines;
+  }
+  if (parsed.intent === 'offramp') {
+    const lines: { label: string; value: string }[] = [];
+    const monto = parsed.monto_offramp || parsed.monto_por_persona;
+    if (monto) lines.push({ label: 'Monto', value: `${monto} ${parsed.moneda_origen || parsed.moneda || 'SOL'}` });
+    return lines;
+  }
+  return [];
+}
+
 const Index = () => {
   const navigate = useNavigate();
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [helpMessage, setHelpMessage] = useState<string | null>(null);
+  const [aiResponse, setAiResponse] = useState<ParsedRule | null>(null);
 
+  // Modal: crear empleados faltantes
   const [showMissingModal, setShowMissingModal] = useState(false);
   const [missingForms, setMissingForms] = useState<MissingForm[]>([]);
   const [creatingUsers, setCreatingUsers] = useState(false);
   const [formErrors, setFormErrors] = useState<string | null>(null);
-  const [helpMessage, setHelpMessage] = useState<string | null>(null);
-  const [aiResponse, setAiResponse] = useState<ParsedRule | null>(null);
 
-  const HELP_PATTERNS = /^(hola|hello|hi|hey|buenos\s+días?|buenas|buen\s+día|qué\s+puedes|que\s+puedes|what\s+can|ayuda|help|cómo\s+funciona|como\s+funciona|qué\s+eres|que\s+eres|qué\s+haces|que\s+haces|para\s+qué|para\s+que|info|información)[\s.,!?]*/i;
-
-  function buildAITitle(parsed: ParsedRule): string {
-    if (parsed.intent === 'pago') return parsed.frecuencia ? 'Detecté un pago recurrente:' : 'Detecté un pago puntual:';
-    if (parsed.intent === 'factura') return 'Voy a crear una factura:';
-    if (parsed.intent === 'offramp') return 'Voy a convertir cripto a fiat:';
-    return 'Entendido:';
-  }
-
-  function buildAILines(parsed: ParsedRule): { label: string; value: string }[] {
-    const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-    if (parsed.intent === 'pago') {
-      const lines: { label: string; value: string }[] = [];
-      if (parsed.destinatarios?.length)
-        lines.push({ label: 'Destinatarios', value: parsed.destinatarios.map(cap).join(', ') });
-      if (parsed.monto_por_persona)
-        lines.push({ label: 'Monto por persona', value: `${parsed.monto_por_persona} ${parsed.moneda || 'SOL'}` });
-      if (parsed.frecuencia)
-        lines.push({ label: 'Frecuencia', value: cap(parsed.frecuencia) });
-      if (parsed.dia_de_pago)
-        lines.push({ label: 'Día de pago', value: cap(parsed.dia_de_pago) });
-      if (parsed.monto_por_persona && parsed.destinatarios?.length) {
-        const total = parsed.monto_por_persona * parsed.destinatarios.length;
-        const fmt = Number.isInteger(total) ? total.toString() : total.toFixed(4).replace(/\.?0+$/, '');
-        lines.push({ label: 'Total', value: `${fmt} ${parsed.moneda || 'SOL'}` });
-      }
-      return lines;
-    }
-    if (parsed.intent === 'factura') {
-      const lines: { label: string; value: string }[] = [];
-      if (parsed.cliente) lines.push({ label: 'Cliente', value: parsed.cliente });
-      if (parsed.monto_factura) lines.push({ label: 'Monto', value: `${parsed.monto_factura} ${parsed.moneda_factura || 'USD'}` });
-      if (parsed.descripcion_factura) lines.push({ label: 'Descripción', value: parsed.descripcion_factura });
-      return lines;
-    }
-    if (parsed.intent === 'offramp') {
-      const lines: { label: string; value: string }[] = [];
-      if (parsed.monto_por_persona) lines.push({ label: 'Monto', value: `${parsed.monto_por_persona} ${parsed.moneda || 'SOL'}` });
-      return lines;
-    }
-    return [];
-  }
-
-  const HELP_DEFAULT = 'Puedo hacer 3 cosas por ti: 1) Pagar nómina — transfiero SOL a tu equipo con una frase. 2) Generar facturas — creo y rastreo cobros a tus clientes. 3) Convertir cripto a fiat — convierto tu SOL a dinero en tu cuenta bancaria. ¿Por dónde quieres empezar?';
+  // Modal: datos incompletos de la instrucción
+  const [showMissingDataModal, setShowMissingDataModal] = useState(false);
+  const [missingDataFields, setMissingDataFields] = useState<MissingField[]>([]);
+  const [pendingParsed, setPendingParsed] = useState<ParsedRule | null>(null);
+  const [missingDataError, setMissingDataError] = useState<string | null>(null);
 
   const handleAnalyze = async () => {
     if (!text.trim() || loading) return;
@@ -118,13 +211,22 @@ const Index = () => {
 
     try {
       const parsed = await parseRule(text.trim());
-      sessionStorage.setItem('parsedRule', JSON.stringify(parsed));
 
       if (parsed.intent === 'ayuda') {
         setHelpMessage(parsed.mensaje_ayuda || HELP_DEFAULT);
         return;
       }
 
+      // Verificar si faltan datos críticos antes de mostrar la respuesta
+      const missing = getMissingFields(parsed);
+      if (missing.length > 0) {
+        setPendingParsed(parsed);
+        setMissingDataFields(missing);
+        setShowMissingDataModal(true);
+        return;
+      }
+
+      sessionStorage.setItem('parsedRule', JSON.stringify(parsed));
       setAiResponse(parsed);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al analizar la instrucción');
@@ -133,22 +235,91 @@ const Index = () => {
     }
   };
 
+  async function handleMissingDataConfirm() {
+    // Validar que todos los campos estén completos
+    const empty = missingDataFields.find(f => !f.value.trim());
+    if (empty) {
+      setMissingDataError(`"${empty.label}" es obligatorio para continuar`);
+      return;
+    }
+    // Validar números > 0
+    for (const f of missingDataFields) {
+      if (f.type === 'number') {
+        const val = parseFloat(f.value);
+        if (isNaN(val) || val <= 0) {
+          setMissingDataError(`"${f.label}": ingresa un número válido mayor a cero`);
+          return;
+        }
+      }
+    }
+    setMissingDataError(null);
+
+    // Si cambiaron los destinatarios, necesitamos re-parsear para buscar wallets
+    const needsReParse = missingDataFields.some(f => f.field === 'destinatarios');
+
+    if (needsReParse) {
+      const updatedInstruction = buildInstruction(pendingParsed!, missingDataFields);
+      setShowMissingDataModal(false);
+      setText(updatedInstruction);
+      setLoading(true);
+      try {
+        const reparsed = await parseRule(updatedInstruction);
+        if (reparsed.intent === 'ayuda') {
+          setHelpMessage(reparsed.mensaje_ayuda || HELP_DEFAULT);
+          return;
+        }
+        const stillMissing = getMissingFields(reparsed);
+        if (stillMissing.length > 0) {
+          setPendingParsed(reparsed);
+          setMissingDataFields(stillMissing);
+          setShowMissingDataModal(true);
+          return;
+        }
+        sessionStorage.setItem('parsedRule', JSON.stringify(reparsed));
+        setAiResponse(reparsed);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error al analizar la instrucción');
+      } finally {
+        setLoading(false);
+        setPendingParsed(null);
+      }
+    } else {
+      // Mezclar los campos completados con la respuesta original
+      const merged: ParsedRule = { ...pendingParsed! };
+      for (const f of missingDataFields) {
+        if (f.field === 'monto_por_persona') merged.monto_por_persona = parseFloat(f.value);
+        if (f.field === 'dia_de_pago') merged.dia_de_pago = f.value;
+        if (f.field === 'cliente') merged.cliente = f.value;
+        if (f.field === 'monto_factura') merged.monto_factura = parseFloat(f.value);
+        if (f.field === 'monto_offramp') merged.monto_offramp = parseFloat(f.value);
+      }
+      sessionStorage.setItem('parsedRule', JSON.stringify(merged));
+      setAiResponse(merged);
+      setShowMissingDataModal(false);
+      setPendingParsed(null);
+    }
+  }
+
   function handleConfirm() {
     if (!aiResponse) return;
 
     if (aiResponse.intent === 'factura') { navigate('/invoice'); return; }
     if (aiResponse.intent === 'offramp') { navigate('/offramp'); return; }
 
-    const missing = (aiResponse.destinatariosConWallet || []).filter((d: any) => !d.wallet);
+    const missing = (aiResponse.destinatariosConWallet || []).filter(d => !d.wallet);
     if (missing.length > 0) {
-      setMissingForms(missing.map((d: any) => ({
-        nombre: d.nombre.charAt(0).toUpperCase() + d.nombre.slice(1),
+      setMissingForms(missing.map(d => ({
+        nombre: cap(d.nombre),
         email: '', wallet: '', clabe: '', password: '', created: false,
       })));
       setShowMissingModal(true);
     } else {
       navigate('/confirm');
     }
+  }
+
+  function updateMissingDataField(index: number, value: string) {
+    setMissingDataFields(prev => prev.map((f, i) => i === index ? { ...f, value } : f));
   }
 
   function updateForm(index: number, field: keyof MissingForm, value: string) {
@@ -169,7 +340,7 @@ const Index = () => {
         return;
       }
       if (form.wallet && !BASE58.test(form.wallet.trim())) {
-        setFormErrors(`Wallet inválida para ${form.nombre}`);
+        setFormErrors(`Wallet inválida para ${form.nombre}: debe ser una dirección Solana válida (Base58)`);
         return;
       }
     }
@@ -190,25 +361,26 @@ const Index = () => {
     setShowMissingModal(false);
     setCreatingUsers(false);
 
-    // Re-analizar con los nuevos empleados ya creados
     setLoading(true);
     try {
       const parsed = await parseRule(text.trim());
       sessionStorage.setItem('parsedRule', JSON.stringify(parsed));
       navigate('/confirm');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al analizar la instrucción';
-      setModalError(msg);
+      setModalError(err instanceof Error ? err.message : 'Error al analizar la instrucción');
     } finally {
       setLoading(false);
     }
   }
 
+  const allWalletsFound = aiResponse?.intent === 'pago' &&
+    (aiResponse.destinatariosConWallet || []).every(d => d.wallet);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
 
-      {/* Framer Motion loading overlay */}
+      {/* Loading overlay */}
       <AnimatePresence>
         {loading && (
           <motion.div
@@ -281,6 +453,87 @@ const Index = () => {
         </div>
       )}
 
+      {/* Modal: datos incompletos en la instrucción */}
+      {showMissingDataModal && pendingParsed && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
+          <div className="fp-card w-full max-w-md p-6 animate-fade-in">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-yellow-500/15 flex items-center justify-center shrink-0">
+                  <ShieldAlert className="w-5 h-5 text-yellow-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">Faltan datos</h2>
+                  <p className="text-xs text-muted-foreground">
+                    La IA detectó la intención pero necesita más información
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowMissingDataModal(false); setPendingParsed(null); }}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 mb-5">
+              {missingDataFields.map((field, i) => (
+                <div key={field.field}>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block uppercase tracking-wider">
+                    {field.label}
+                  </label>
+                  {field.type === 'select' ? (
+                    <select
+                      value={field.value}
+                      onChange={e => updateMissingDataField(i, e.target.value)}
+                      className="fp-input w-full px-3 py-2.5 text-sm bg-card"
+                    >
+                      <option value="">Selecciona un día…</option>
+                      {field.options?.map(opt => (
+                        <option key={opt} value={opt}>{cap(opt)}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type={field.type}
+                      value={field.value}
+                      onChange={e => updateMissingDataField(i, e.target.value)}
+                      placeholder={field.placeholder}
+                      className="fp-input w-full px-3 py-2.5 text-sm"
+                      min={field.type === 'number' ? '0' : undefined}
+                      step={field.type === 'number' ? 'any' : undefined}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {missingDataError && (
+              <p className="text-sm text-destructive mb-4 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {missingDataError}
+              </p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowMissingDataModal(false); setPendingParsed(null); }}
+                className="fp-btn-secondary flex-1 py-3 text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleMissingDataConfirm}
+                className="fp-btn-primary flex-[2] py-3 text-sm"
+              >
+                Continuar con estos datos →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal: colaboradores no encontrados */}
       {showMissingModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
@@ -337,10 +590,24 @@ const Index = () => {
                     <input
                       value={form.wallet}
                       onChange={e => updateForm(i, 'wallet', e.target.value)}
-                      placeholder="Wallet de Solana (opcional)"
-                      className="fp-input w-full pl-9 pr-3 py-2.5 text-sm font-mono"
+                      placeholder="Wallet de Solana (recomendado para recibir pagos)"
+                      className={`fp-input w-full pl-9 pr-3 py-2.5 text-sm font-mono ${
+                        form.wallet && !BASE58.test(form.wallet.trim()) ? 'border-destructive/60' : ''
+                      }`}
                     />
+                    {form.wallet && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                        {BASE58.test(form.wallet.trim())
+                          ? <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
+                          : <AlertCircle className="w-3.5 h-3.5 text-destructive" />}
+                      </span>
+                    )}
                   </div>
+                  {form.wallet && !BASE58.test(form.wallet.trim()) && (
+                    <p className="text-xs text-destructive -mt-2 pl-1">
+                      Dirección inválida — debe ser una wallet Solana (Base58, 32-44 caracteres)
+                    </p>
+                  )}
 
                   <div className="relative">
                     <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -359,7 +626,7 @@ const Index = () => {
                       type="password"
                       value={form.password}
                       onChange={e => updateForm(i, 'password', e.target.value)}
-                      placeholder="Contraseña (mín. 6 caracteres)"
+                      placeholder="Contraseña de acceso (mín. 6 caracteres)"
                       className="fp-input w-full pl-9 pr-3 py-2.5 text-sm"
                     />
                   </div>
@@ -397,7 +664,7 @@ const Index = () => {
         </div>
       )}
 
-      {/* Modal error nombre ambiguo */}
+      {/* Modal: nombre ambiguo */}
       {modalError && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
           <div className="fp-card w-full max-w-md p-6 animate-fade-in">
@@ -421,12 +688,13 @@ const Index = () => {
         </div>
       )}
 
-      {/* Glow effect */}
+      {/* Glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] pointer-events-none"
         style={{ background: 'var(--gradient-glow)' }} />
 
       <main className="flex-1 flex items-center justify-center px-6 relative">
         <div className="w-full max-w-2xl animate-fade-in">
+
           <div className="flex justify-center mb-6">
             <div className="fp-badge gap-2">
               <Zap className="w-3.5 h-3.5 text-primary" />
@@ -442,7 +710,6 @@ const Index = () => {
             Escribe lo que quieres pagar. La IA lo interpreta y ejecuta en Solana en segundos.
           </p>
 
-          {/* Quick action chips */}
           <div className="flex flex-wrap justify-center gap-2 mb-5">
             {QUICK_CHIPS.map((chip, i) => (
               <button
@@ -458,12 +725,12 @@ const Index = () => {
           <div className="mb-4">
             <textarea
               value={text}
-              onChange={(e) => { setText(e.target.value); setAiResponse(null); }}
+              onChange={e => { setText(e.target.value); setAiResponse(null); }}
               placeholder='Ejemplo: "Paga 0.05 SOL a Ana, Luis y Carlos cada viernes"'
               className="fp-input w-full px-5 py-4 text-base resize-none placeholder:text-muted-foreground/60"
               style={{ minHeight: '120px' }}
               maxLength={300}
-              onKeyDown={(e) => {
+              onKeyDown={e => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   handleAnalyze();
@@ -479,14 +746,14 @@ const Index = () => {
           </div>
 
           <button
-            onClick={() => handleAnalyze()}
+            onClick={handleAnalyze}
             disabled={!text.trim() || loading}
             className="fp-btn-primary w-full py-3.5 px-6 text-base flex items-center justify-center gap-2"
           >
             <span>Analizar instrucción →</span>
           </button>
 
-          {/* AI Response Card */}
+          {/* AI Response */}
           <AnimatePresence>
             {aiResponse && (
               <motion.div
@@ -496,14 +763,14 @@ const Index = () => {
                 transition={{ duration: 0.28 }}
                 className="mt-5 space-y-3"
               >
-                {/* User bubble */}
+                {/* Burbuja del usuario */}
                 <div className="flex justify-end">
                   <div className="max-w-[85%] bg-primary/10 border border-primary/20 rounded-2xl rounded-tr-sm px-4 py-3">
                     <p className="text-sm text-foreground/80 italic">"{aiResponse.textoOriginal || text}"</p>
                   </div>
                 </div>
 
-                {/* AI bubble */}
+                {/* Burbuja de la IA */}
                 <div className="flex items-start gap-3">
                   <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-0.5">
                     <Zap className="w-4 h-4 text-primary" />
@@ -512,19 +779,68 @@ const Index = () => {
                     <p className="text-sm font-semibold text-foreground mb-3">
                       Entendido. {buildAITitle(aiResponse)}
                     </p>
-                    <div className="space-y-2 mb-4">
-                      {buildAILines(aiResponse).map((line, i) => (
-                        <div key={i} className="flex items-baseline gap-2 text-sm">
-                          <span className="text-primary font-bold shrink-0">→</span>
-                          <span className="text-muted-foreground shrink-0">{line.label}:</span>
-                          <span className="text-foreground font-semibold">{line.value}</span>
+
+                    {/* Campos generales */}
+                    {buildAILines(aiResponse).length > 0 && (
+                      <div className="space-y-2 mb-4">
+                        {buildAILines(aiResponse).map((line, i) => (
+                          <div key={i} className="flex items-baseline gap-2 text-sm">
+                            <span className="text-primary font-bold shrink-0">→</span>
+                            <span className="text-muted-foreground shrink-0">{line.label}:</span>
+                            <span className="text-foreground font-semibold">{line.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Verificación de destinatarios (solo para pago) */}
+                    {aiResponse.intent === 'pago' && aiResponse.destinatariosConWallet?.length > 0 && (
+                      <div className="mb-4 rounded-lg border border-border/50 overflow-hidden">
+                        <div className="px-3 py-2 border-b border-border/50 flex items-center gap-2 bg-muted/20">
+                          <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Verificación de destinatarios
+                          </span>
                         </div>
-                      ))}
-                    </div>
+                        <div className="divide-y divide-border/30">
+                          {aiResponse.destinatariosConWallet.map((d, i) => (
+                            <div key={i} className="flex items-center justify-between px-3 py-2.5 text-sm">
+                              <span className="text-foreground font-medium capitalize">{d.nombre}</span>
+                              {d.wallet ? (
+                                <span className="flex items-center gap-1.5 text-green-400 text-xs">
+                                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                                  <span className="font-mono">
+                                    {d.wallet.slice(0, 6)}…{d.wallet.slice(-4)}
+                                  </span>
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1.5 text-yellow-400 text-xs">
+                                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                  Sin wallet — se registrará al continuar
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        {/* Resumen del estado */}
+                        <div className={`px-3 py-2 text-xs flex items-center gap-1.5 ${
+                          allWalletsFound
+                            ? 'bg-green-500/5 text-green-400'
+                            : 'bg-yellow-500/5 text-yellow-400'
+                        }`}>
+                          {allWalletsFound ? (
+                            <><ShieldCheck className="w-3 h-3" /> Todos los destinatarios tienen wallet verificada</>
+                          ) : (
+                            <><AlertCircle className="w-3 h-3" /> Algunos destinatarios no tienen wallet — se crearán antes de ejecutar</>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     <p className="text-sm text-muted-foreground mb-4">¿Ejecuto?</p>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => { setAiResponse(null); }}
+                        onClick={() => setAiResponse(null)}
                         className="fp-btn-secondary flex-1 py-2.5 text-sm"
                       >
                         ← Modificar
@@ -575,6 +891,7 @@ const Index = () => {
               ))}
             </div>
           </div>
+
         </div>
       </main>
     </div>

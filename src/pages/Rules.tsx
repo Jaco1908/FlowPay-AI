@@ -86,10 +86,12 @@ const Rules = () => {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      const mapped = data.map((r: any) => ({
-        ...r,
-        execution_count: r.executions?.[0]?.count ?? 0,
-      }));
+      const mapped = data
+        .filter((r: any) => r.monto_por_persona > 0 && r.raw_text !== 'test')
+        .map((r: any) => ({
+          ...r,
+          execution_count: r.executions?.[0]?.count ?? 0,
+        }));
       setRules(mapped);
     }
     setLoading(false);

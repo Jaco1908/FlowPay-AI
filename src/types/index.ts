@@ -4,13 +4,30 @@ export interface DestinatarioConWallet {
 }
 
 export interface ParsedRule {
+  intent: 'pago' | 'factura' | 'offramp' | 'ayuda';
+  textoOriginal: string;
+
+  // pago
   destinatarios: string[];
   destinatariosConWallet: DestinatarioConWallet[];
-  monto_por_persona: number;
-  moneda: string;
+  monto_por_persona: number | null;
+  moneda: string | null;
   frecuencia: string | null;
   dia_de_pago: string | null;
-  textoOriginal: string;
+
+  // factura
+  cliente: string | null;
+  monto_factura: number | null;
+  moneda_factura: string | null;
+  descripcion_factura: string | null;
+
+  // offramp
+  monto_offramp: number | null;
+  moneda_origen: string | null;
+  destino_offramp: string | null;
+
+  // ayuda
+  mensaje_ayuda: string | null;
 }
 
 export interface ExecutionItem {
