@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { UserPlus, Trash2, Wallet, Mail, User, Lock, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { UserPlus, Trash2, Wallet, Mail, User, Lock, X, CheckCircle, AlertCircle, CreditCard } from 'lucide-react';
 import Header from '@/components/Header';
 import { supabase } from '@/lib/supabase';
 import { hashPassword } from '@/lib/crypto';
@@ -14,6 +14,7 @@ interface Employee {
   nombre: string;
   email: string;
   wallet: string | null;
+  clabe: string | null;
   role: string;
   created_at: string;
 }
@@ -28,7 +29,7 @@ export default function Team() {
   const [confirmDelete, setConfirmDelete] = useState<Employee | null>(null);
 
   const [form, setForm] = useState({
-    nombre: '', email: '', wallet: '', password: ''
+    nombre: '', email: '', wallet: '', password: '', clabe: '', clabeConfirm: ''
   });
 
   async function fetchEmployees() {
@@ -81,18 +82,31 @@ export default function Team() {
       return;
     }
 
+    if (form.clabe.trim() && !/^\d{18}$/.test(form.clabe.trim())) {
+      setError('La CLABE debe tener exactamente 18 dígitos.');
+      setSaving(false);
+      return;
+    }
+
+    if (form.clabe.trim() && form.clabe !== form.clabeConfirm) {
+      setError('Las CLABEs no coinciden, verifica que sean iguales.');
+      setSaving(false);
+      return;
+    }
+
     const hashed = await hashPassword(form.password, form.email.toLowerCase().trim());
     const { error } = await supabase.from('employees').insert({
       nombre: form.nombre.trim(),
       email: form.email.toLowerCase().trim(),
       wallet: form.wallet.trim() || null,
+      clabe: form.clabe.trim() || null,
       password: hashed,
       role: 'employee',
     });
     if (error) {
       setError(error.message.includes('unique') ? 'Ese correo ya existe' : error.message);
     } else {
-      setForm({ nombre: '', email: '', wallet: '', password: '' });
+      setForm({ nombre: '', email: '', wallet: '', password: '', clabe: '', clabeConfirm: '' });
       setShowForm(false);
       fetchEmployees();
     }
@@ -254,6 +268,52 @@ export default function Team() {
 
                   <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1.5 block uppercase tracking-wider">
+                      CLABE interbancaria
+                    </label>
+                    <div className="relative">
+                      <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <input
+                        value={form.clabe}
+                        onChange={e => setForm(f => ({ ...f, clabe: e.target.value.replace(/\D/g, '').slice(0, 18) }))}
+                        placeholder="18 dígitos (opcional)"
+                        inputMode="numeric"
+                        className="fp-input w-full pl-10 pr-4 py-3 text-sm font-mono tracking-widest"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground/60 mt-1">{form.clabe.length}/18 · Para recibir pagos en su cuenta bancaria</p>
+                  </div>
+
+                  {form.clabe.length > 0 && (
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1.5 block uppercase tracking-wider">
+                        Confirmar CLABE
+                      </label>
+                      <div className="relative">
+                        <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <input
+                          value={form.clabeConfirm}
+                          onChange={e => setForm(f => ({ ...f, clabeConfirm: e.target.value.replace(/\D/g, '').slice(0, 18) }))}
+                          placeholder="Repite la CLABE"
+                          inputMode="numeric"
+                          className={`fp-input w-full pl-10 pr-10 py-3 text-sm font-mono tracking-widest ${
+                            form.clabeConfirm.length === 18
+                              ? form.clabeConfirm === form.clabe ? 'border-green-500/50' : 'border-destructive/50'
+                              : ''
+                          }`}
+                        />
+                        {form.clabeConfirm.length === 18 && (
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                            {form.clabeConfirm === form.clabe
+                              ? <CheckCircle className="w-4 h-4 text-green-400" />
+                              : <AlertCircle className="w-4 h-4 text-destructive" />}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block uppercase tracking-wider">
                       Contraseña de acceso
                     </label>
                     <div className="relative">
@@ -328,15 +388,26 @@ export default function Team() {
                         {truncateWallet(emp.wallet)}
                       </p>
                     )}
+                    {emp.clabe && (
+                      <p className="text-muted-foreground text-xs font-mono mt-0.5">
+                        CLABE ****{emp.clabe.slice(-4)}
+                      </p>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    {emp.wallet ? (
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                    {emp.wallet && (
                       <span className="text-xs px-2 py-1 rounded-full bg-green-500/15 text-green-400 font-medium">
                         ✓ Wallet
                       </span>
-                    ) : (
+                    )}
+                    {emp.clabe && (
+                      <span className="text-xs px-2 py-1 rounded-full bg-purple-500/15 text-purple-400 font-medium">
+                        ✓ CLABE
+                      </span>
+                    )}
+                    {!emp.wallet && !emp.clabe && (
                       <span className="text-xs px-2 py-1 rounded-full bg-yellow-500/15 text-yellow-400 font-medium">
-                        Sin wallet
+                        Sin método de pago
                       </span>
                     )}
                     <button

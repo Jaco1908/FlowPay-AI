@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, AlertCircle, Clock, X, Users, UserPlus, Mail, Wallet, Lock, CheckCircle2 } from 'lucide-react';
+import { Zap, AlertCircle, Clock, X, Users, UserPlus, Mail, Wallet, Lock, CheckCircle2, CreditCard } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from '@/components/Header';
 import { parseRule } from '@/api/rules/parse';
@@ -40,6 +40,7 @@ interface MissingForm {
   nombre: string;
   email: string;
   wallet: string;
+  clabe: string;
   password: string;
   created: boolean;
 }
@@ -142,7 +143,7 @@ const Index = () => {
     if (missing.length > 0) {
       setMissingForms(missing.map((d: any) => ({
         nombre: d.nombre.charAt(0).toUpperCase() + d.nombre.slice(1),
-        email: '', wallet: '', password: '', created: false,
+        email: '', wallet: '', clabe: '', password: '', created: false,
       })));
       setShowMissingModal(true);
     } else {
@@ -180,6 +181,7 @@ const Index = () => {
         nombre: form.nombre.trim(),
         email: form.email.toLowerCase().trim(),
         wallet: form.wallet.trim() || null,
+        clabe: form.clabe.trim() || null,
         password: hashed,
         role: 'employee',
       });
@@ -336,6 +338,17 @@ const Index = () => {
                       value={form.wallet}
                       onChange={e => updateForm(i, 'wallet', e.target.value)}
                       placeholder="Wallet de Solana (opcional)"
+                      className="fp-input w-full pl-9 pr-3 py-2.5 text-sm font-mono"
+                    />
+                  </div>
+
+                  <div className="relative">
+                    <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <input
+                      value={form.clabe}
+                      onChange={e => updateForm(i, 'clabe', e.target.value.replace(/\D/g, '').slice(0, 18))}
+                      placeholder="CLABE bancaria (opcional, 18 dígitos)"
+                      inputMode="numeric"
                       className="fp-input w-full pl-9 pr-3 py-2.5 text-sm font-mono"
                     />
                   </div>

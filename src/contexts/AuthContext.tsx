@@ -7,6 +7,7 @@ interface Employee {
   nombre: string;
   email: string;
   wallet: string | null;
+  clabe: string | null;
   role: 'admin' | 'employee';
 }
 
@@ -31,7 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const cached = JSON.parse(stored);
           const { data } = await supabase
             .from('employees')
-            .select('id, nombre, email, wallet, role')
+            .select('id, nombre, email, wallet, clabe, role')
             .eq('id', cached.id)
             .single();
           if (data) {
@@ -54,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data, error } = await supabase
       .from('employees')
-      .select('id, nombre, email, wallet, role')
+      .select('id, nombre, email, wallet, clabe, role')
       .eq('email', email.toLowerCase().trim())
       .eq('password', hashed)
       .single();
