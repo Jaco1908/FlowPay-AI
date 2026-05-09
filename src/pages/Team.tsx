@@ -82,14 +82,14 @@ export default function Team() {
       return;
     }
 
-    if (form.clabe.trim() && !/^\d{18}$/.test(form.clabe.trim())) {
-      setError('La CLABE debe tener exactamente 18 dígitos.');
+    if (form.clabe.trim() && !/^\d{10}$/.test(form.clabe.trim())) {
+      setError('El número de cuenta debe tener exactamente 10 dígitos.');
       setSaving(false);
       return;
     }
 
     if (form.clabe.trim() && form.clabe !== form.clabeConfirm) {
-      setError('Las CLABEs no coinciden, verifica que sean iguales.');
+      setError('Los números de cuenta no coinciden, verifica que sean iguales.');
       setSaving(false);
       return;
     }
@@ -268,40 +268,40 @@ export default function Team() {
 
                   <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1.5 block uppercase tracking-wider">
-                      CLABE interbancaria
+                      Número de cuenta
                     </label>
                     <div className="relative">
                       <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <input
                         value={form.clabe}
-                        onChange={e => setForm(f => ({ ...f, clabe: e.target.value.replace(/\D/g, '').slice(0, 18) }))}
-                        placeholder="18 dígitos (opcional)"
+                        onChange={e => setForm(f => ({ ...f, clabe: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                        placeholder="10 dígitos (opcional)"
                         inputMode="numeric"
                         className="fp-input w-full pl-10 pr-4 py-3 text-sm font-mono tracking-widest"
                       />
                     </div>
-                    <p className="text-xs text-muted-foreground/60 mt-1">{form.clabe.length}/18 · Para recibir pagos en su cuenta bancaria</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">{form.clabe.length}/10 · Para recibir pagos en su cuenta bancaria</p>
                   </div>
 
                   {form.clabe.length > 0 && (
                     <div>
                       <label className="text-xs font-medium text-muted-foreground mb-1.5 block uppercase tracking-wider">
-                        Confirmar CLABE
+                        Confirmar número de cuenta
                       </label>
                       <div className="relative">
                         <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <input
                           value={form.clabeConfirm}
-                          onChange={e => setForm(f => ({ ...f, clabeConfirm: e.target.value.replace(/\D/g, '').slice(0, 18) }))}
-                          placeholder="Repite la CLABE"
+                          onChange={e => setForm(f => ({ ...f, clabeConfirm: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                          placeholder="Repite el número de cuenta"
                           inputMode="numeric"
                           className={`fp-input w-full pl-10 pr-10 py-3 text-sm font-mono tracking-widest ${
-                            form.clabeConfirm.length === 18
+                            form.clabeConfirm.length === 10
                               ? form.clabeConfirm === form.clabe ? 'border-green-500/50' : 'border-destructive/50'
                               : ''
                           }`}
                         />
-                        {form.clabeConfirm.length === 18 && (
+                        {form.clabeConfirm.length === 10 && (
                           <span className="absolute right-3 top-1/2 -translate-y-1/2">
                             {form.clabeConfirm === form.clabe
                               ? <CheckCircle className="w-4 h-4 text-green-400" />
@@ -390,7 +390,7 @@ export default function Team() {
                     )}
                     {emp.clabe && (
                       <p className="text-muted-foreground text-xs font-mono mt-0.5">
-                        CLABE ****{emp.clabe.slice(-4)}
+                        Cuenta ****{emp.clabe.slice(-4)}
                       </p>
                     )}
                   </div>
@@ -402,7 +402,7 @@ export default function Team() {
                     )}
                     {emp.clabe && (
                       <span className="text-xs px-2 py-1 rounded-full bg-purple-500/15 text-purple-400 font-medium">
-                        ✓ CLABE
+                        ✓ Cuenta
                       </span>
                     )}
                     {!emp.wallet && !emp.clabe && (

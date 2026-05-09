@@ -150,7 +150,7 @@ export default function EmployeeDashboard() {
     e.preventDefault();
     setClabeError(null);
     if (!clabeForm.banco) { setClabeError('Selecciona tu banco'); return; }
-    if (!/^\d{10,16}$/.test(clabeForm.clabe)) { setClabeError('El número de cuenta debe tener entre 10 y 16 dígitos'); return; }
+    if (!/^\d{10}$/.test(clabeForm.clabe)) { setClabeError('El número de cuenta debe tener exactamente 10 dígitos'); return; }
     if (clabeForm.clabe !== clabeForm.clabeConfirm) { setClabeError('Los números de cuenta no coinciden'); return; }
     setClabeLoading(true);
     await supabase.from('employees').update({ clabe: clabeForm.clabe }).eq('id', user!.id);
@@ -346,7 +346,7 @@ export default function EmployeeDashboard() {
             {clabeSuccess ? (
               <div className="text-center py-6">
                 <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto mb-3" />
-                <p className="text-foreground font-semibold">CLABE guardada</p>
+                <p className="text-foreground font-semibold">Cuenta guardada</p>
                 <p className="text-muted-foreground text-sm mt-1">Ya puedes recibir pagos en tu banco</p>
               </div>
             ) : (
@@ -372,31 +372,31 @@ export default function EmployeeDashboard() {
                     <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       value={clabeForm.clabe}
-                      onChange={e => setClabeForm(f => ({ ...f, clabe: e.target.value.replace(/\D/g, '').slice(0, 16) }))}
+                      onChange={e => setClabeForm(f => ({ ...f, clabe: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
                       placeholder="Número de cuenta (10 dígitos)"
                       inputMode="numeric"
                       className="fp-input w-full pl-10 pr-4 py-3 text-sm font-mono tracking-widest"
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground/60 mt-1">{clabeForm.clabe.length}/16</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">{clabeForm.clabe.length}/10</p>
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block uppercase tracking-wider">Confirmar CLABE</label>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block uppercase tracking-wider">Confirmar número de cuenta</label>
                   <div className="relative">
                     <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       value={clabeForm.clabeConfirm}
-                      onChange={e => setClabeForm(f => ({ ...f, clabeConfirm: e.target.value.replace(/\D/g, '').slice(0, 16) }))}
+                      onChange={e => setClabeForm(f => ({ ...f, clabeConfirm: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
                       placeholder="Repite el número de cuenta"
                       inputMode="numeric"
                       className={`fp-input w-full pl-10 pr-10 py-3 text-sm font-mono tracking-widest ${
-                        clabeForm.clabeConfirm.length === 18
+                        clabeForm.clabeConfirm.length === 10
                           ? clabeForm.clabeConfirm === clabeForm.clabe ? 'border-green-500/50' : 'border-destructive/50'
                           : ''
                       }`}
                     />
-                    {clabeForm.clabeConfirm.length === 18 && (
+                    {clabeForm.clabeConfirm.length === 10 && (
                       <span className="absolute right-3 top-1/2 -translate-y-1/2">
                         {clabeForm.clabeConfirm === clabeForm.clabe
                           ? <CheckCircle2 className="w-4 h-4 text-green-400" />
@@ -404,8 +404,8 @@ export default function EmployeeDashboard() {
                       </span>
                     )}
                   </div>
-                  {clabeForm.clabeConfirm.length === 18 && clabeForm.clabeConfirm === clabeForm.clabe && (
-                    <p className="text-xs text-green-400 mt-1">✓ Las CLABEs coinciden</p>
+                  {clabeForm.clabeConfirm.length === 10 && clabeForm.clabeConfirm === clabeForm.clabe && (
+                    <p className="text-xs text-green-400 mt-1">✓ Los números de cuenta coinciden</p>
                   )}
                 </div>
 
@@ -607,7 +607,7 @@ export default function EmployeeDashboard() {
             <div className="fp-card p-4">
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle2 className="w-4 h-4 text-green-400" />
-                <span className="text-xs text-muted-foreground">Total recibido</span>
+                <span className="text-xs text-muted-foreground">Recibido vía FlowPay</span>
               </div>
               <p className="text-2xl font-bold text-green-400">
                 {totalRecibido.toFixed(4)} <span className="text-sm">SOL</span>
