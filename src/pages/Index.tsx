@@ -346,8 +346,8 @@ const Index = () => {
                     <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                     <input
                       value={form.clabe}
-                      onChange={e => updateForm(i, 'clabe', e.target.value.replace(/\D/g, '').slice(0, 18))}
-                      placeholder="CLABE bancaria (opcional, 18 dígitos)"
+                      onChange={e => updateForm(i, 'clabe', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      placeholder="Número de cuenta (opcional, 10 dígitos)"
                       inputMode="numeric"
                       className="fp-input w-full pl-9 pr-3 py-2.5 text-sm font-mono"
                     />

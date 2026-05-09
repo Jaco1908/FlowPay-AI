@@ -3,7 +3,8 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   AreaChart, Area, CartesianGrid,
 } from 'recharts';
-import { TrendingUp, Send, Users, Repeat2, FileText, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { TrendingUp, Send, Users, Repeat2, FileText, CheckCircle2, Clock, XCircle, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { supabase } from '@/lib/supabase';
 
@@ -41,6 +42,7 @@ const CustomTooltipH = ({ active, payload, label }: any) => {
 };
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
 
   const [totalSol, setTotalSol] = useState(0);
@@ -54,6 +56,9 @@ export default function Dashboard() {
   const [invoicePendiente, setInvoicePendiente] = useState(0);
   const [invoicePagada, setInvoicePagada] = useState(0);
   const [invoiceCancelada, setInvoiceCancelada] = useState(0);
+  const [montoPendiente, setMontoPendiente] = useState(0);
+  const [montoPagado, setMontoPagado] = useState(0);
+  const SOL_PRICE_USD = 148;
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -65,13 +70,13 @@ export default function Dashboard() {
         .eq('status', 'completed'),
       supabase.from('rules').select('status'),
       supabase.from('employees').select('id').eq('role', 'employee'),
-      supabase.from('invoices').select('status, monto'),
+      supabase.from('invoices').select('status, monto, moneda_factura'),
     ]);
 
     const executions = (exRes.data || []) as { monto: number; executed_at: string; destinatario_nombre: string; status: string }[];
     const rules = (rulesRes.data || []) as { status: string }[];
     const employees = empRes.data || [];
-    const invoices = (invRes.data || []) as { status: string; monto: number }[];
+    const invoices = (invRes.data || []) as { status: string; monto: number; moneda_factura: string }[];
 
     // Stats
     const sol = executions.reduce((s, e) => s + Number(e.monto), 0);
@@ -103,9 +108,12 @@ export default function Dashboard() {
     setRecipientData(sorted);
 
     // Facturas
+    const toUSD = (m: number, moneda: string) => moneda === 'SOL' ? m * SOL_PRICE_USD : m;
     setInvoicePendiente(invoices.filter(i => i.status === 'pendiente').length);
     setInvoicePagada(invoices.filter(i => i.status === 'pagada').length);
     setInvoiceCancelada(invoices.filter(i => i.status === 'cancelada').length);
+    setMontoPendiente(invoices.filter(i => i.status === 'pendiente').reduce((s, i) => s + toUSD(Number(i.monto), i.moneda_factura), 0));
+    setMontoPagado(invoices.filter(i => i.status === 'pagada').reduce((s, i) => s + toUSD(Number(i.monto), i.moneda_factura), 0));
 
     setLoading(false);
   }
@@ -197,25 +205,47 @@ export default function Dashboard() {
 
               {/* Facturas summary */}
               <div className="fp-card p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <FileText className="w-4 h-4 text-muted-foreground" />
-                  <p className="text-sm font-semibold text-foreground">Estado de facturas</p>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-sm font-semibold text-foreground">Estado de facturas</p>
+                  </div>
+                  <button onClick={() => navigate('/invoices')}
+                    className="flex items-center gap-1 text-xs text-primary hover:underline">
+                    Ver todas <ExternalLink className="w-3 h-3" />
+                  </button>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+
+                <div className="grid grid-cols-3 gap-3 mb-4">
                   <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 text-center">
-                    <Clock className="w-5 h-5 text-yellow-400 mx-auto mb-2" />
+                    <Clock className="w-5 h-5 text-yellow-400 mx-auto mb-1" />
                     <p className="text-2xl font-bold text-yellow-400">{invoicePendiente}</p>
                     <p className="text-xs text-muted-foreground mt-1">Pendientes</p>
                   </div>
                   <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 text-center">
-                    <CheckCircle2 className="w-5 h-5 text-green-400 mx-auto mb-2" />
+                    <CheckCircle2 className="w-5 h-5 text-green-400 mx-auto mb-1" />
                     <p className="text-2xl font-bold text-green-400">{invoicePagada}</p>
                     <p className="text-xs text-muted-foreground mt-1">Pagadas</p>
                   </div>
                   <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 text-center">
-                    <XCircle className="w-5 h-5 text-destructive mx-auto mb-2" />
+                    <XCircle className="w-5 h-5 text-destructive mx-auto mb-1" />
                     <p className="text-2xl font-bold text-destructive">{invoiceCancelada}</p>
                     <p className="text-xs text-muted-foreground mt-1">Canceladas</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 border-t border-border/50 pt-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Por cobrar</p>
+                    <p className="text-lg font-bold text-yellow-400">
+                      ${montoPendiente.toLocaleString()} <span className="text-xs font-normal">USD</span>
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Ya cobrado</p>
+                    <p className="text-lg font-bold text-green-400">
+                      ${montoPagado.toLocaleString()} <span className="text-xs font-normal">USD</span>
+                    </p>
                   </div>
                 </div>
               </div>

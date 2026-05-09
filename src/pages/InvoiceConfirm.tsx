@@ -5,7 +5,7 @@ import Header from '@/components/Header';
 import { supabase } from '@/lib/supabase';
 import type { ParsedRule } from '@/types';
 
-const MONEDAS = ['USD', 'SOL', 'USDC'] as const;
+const MONEDAS = ['USD', 'SOL'] as const;
 
 export default function InvoiceConfirm() {
   const navigate  = useNavigate();
@@ -18,7 +18,7 @@ export default function InvoiceConfirm() {
   const [descripcion,   setDescripcion]   = useState('');
   const [monedaFactura, setMonedaFactura] = useState('USD');
 
-  const [previewId] = useState(() => Math.random().toString(36).slice(2, 8).toUpperCase());
+  const [invoiceId] = useState(() => `INV-${Date.now().toString(36).toUpperCase()}`);
   const previewDate  = new Date().toLocaleDateString('es', { day: '2-digit', month: 'long', year: 'numeric' });
 
   useEffect(() => {
@@ -49,9 +49,8 @@ export default function InvoiceConfirm() {
   async function handleCreate() {
     if (!canSave) return;
     setSaving(true);
-    const id = `INV-${Date.now().toString(36).toUpperCase()}`;
     await supabase.from('invoices').insert({
-      invoice_id:     id,
+      invoice_id:     invoiceId,
       cliente:        cliente.trim(),
       monto:          montoNum,
       moneda_factura: monedaFactura,
@@ -60,7 +59,7 @@ export default function InvoiceConfirm() {
       status:         'pendiente',
       raw_text:       rule.textoOriginal,
     });
-    setSavedId(id);
+    setSavedId(invoiceId);
     setSaving(false);
   }
 
@@ -77,7 +76,7 @@ export default function InvoiceConfirm() {
             <div>
               <h1 className="text-xl font-bold text-foreground">Factura registrada</h1>
               <p className="text-muted-foreground text-sm mt-1">
-                <span className="text-primary font-mono">{savedId}</span> · pendiente de pago
+                <span className="text-primary font-mono">{invoiceId}</span> · pendiente de pago
               </p>
             </div>
             <div className="flex gap-3 pt-2">
@@ -202,7 +201,7 @@ export default function InvoiceConfirm() {
                   </div>
                   <div className="text-right">
                     <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Factura</p>
-                    <p className="text-sm font-bold text-gray-900 mt-0.5">#{previewId}</p>
+                    <p className="text-sm font-bold text-gray-900 mt-0.5">#{invoiceId}</p>
                   </div>
                 </div>
 

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle, Users, Coins, Clock, CalendarDays,
-  Zap, CheckCircle2, ArrowLeft, Wallet,
+  Zap, CheckCircle2, ArrowLeft,
 } from 'lucide-react';
 import Header from '@/components/Header';
 import { executeRule } from '@/api/rules/execute';
@@ -136,14 +136,10 @@ const Confirm = () => {
     {
       icon: <Coins className="w-4 h-4" />,
       label: 'Monto por persona',
-      value: rule.monto_por_persona ? `${rule.monto_por_persona} ${rule.moneda || 'SOL'}` : null,
-      accent: 'blue' as const,
-    },
-    {
-      icon: <Wallet className="w-4 h-4" />,
-      label: 'Total a enviar',
-      value: totalSOL > 0 ? `${totalSOL.toFixed(4)} ${rule.moneda || 'SOL'}` : null,
-      accent: 'emerald' as const,
+      value: rule.monto_por_persona
+        ? `${rule.monto_por_persona} SOL`
+        : null,
+      highlight: true,
     },
     {
       icon: <Clock className="w-4 h-4" />,
@@ -290,51 +286,26 @@ const Confirm = () => {
                     Orden detectada
                   </span>
                 </div>
-
-                {/* Card */}
-                <div className="fp-card overflow-hidden">
+                <div className="fp-card p-1">
                   {summaryRows.map((row, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.05 + i * 0.065, duration: 0.3, ease: 'easeOut' }}
-                      className={[
-                        'flex items-center justify-between px-5 py-3.5',
-                        i !== summaryRows.length - 1 ? 'border-b border-border/40' : '',
-                        row.accent === 'emerald' ? 'bg-emerald-500/[0.04]' : '',
-                      ].join(' ')}
-                    >
-                      <div className={`flex items-center gap-3 ${
-                        row.accent === 'emerald' ? 'text-emerald-400/60' : 'text-muted-foreground'
-                      }`}>
+                    <div key={i} className={`flex items-center justify-between px-5 py-4 ${i !== summaryRows.length - 1 ? 'border-b border-border/50' : ''}`}>
+                      <div className="flex items-center gap-3 text-muted-foreground">
                         {row.icon}
-                        <span className={`text-sm font-medium ${
-                          row.accent === 'emerald' ? 'text-emerald-400/75' : ''
-                        }`}>
-                          {row.label}
-                        </span>
+                        <span className="text-sm font-medium">{row.label}</span>
                       </div>
-
-                      <div>
+                      <div className="text-right">
                         {row.value ? (
-                          <span className={`text-sm font-semibold ${
-                            row.accent === 'emerald'
-                              ? 'text-emerald-400 text-[15px]'
-                              : row.accent === 'blue'
-                              ? 'text-primary'
-                              : 'text-foreground'
-                          }`}>
+                          <span className={`text-sm font-semibold ${row.highlight ? 'text-success' : 'text-foreground'}`}>
                             {row.value}
                           </span>
                         ) : (
-                          <span className="flex items-center gap-1.5 text-sm text-destructive">
+                          <span className="text-sm text-destructive flex items-center gap-1">
                             <AlertTriangle className="w-3.5 h-3.5" />
                             No detectado
                           </span>
                         )}
                       </div>
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
 
