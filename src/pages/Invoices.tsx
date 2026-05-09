@@ -54,8 +54,16 @@ export default function Invoices() {
     setUpdating(null);
   }
 
-  const totalPendiente = invoices.filter(i => i.status === 'pendiente').reduce((s, i) => s + Number(i.monto), 0);
-  const totalPagado = invoices.filter(i => i.status === 'pagada').reduce((s, i) => s + Number(i.monto), 0);
+  const SOL_PRICE_USD = 148;
+  const toUSD = (monto: number, moneda: string) =>
+    moneda === 'SOL' ? monto * SOL_PRICE_USD : monto;
+
+  const totalPendiente = invoices
+    .filter(i => i.status === 'pendiente')
+    .reduce((s, i) => s + toUSD(Number(i.monto), i.moneda_factura), 0);
+  const totalPagado = invoices
+    .filter(i => i.status === 'pagada')
+    .reduce((s, i) => s + toUSD(Number(i.monto), i.moneda_factura), 0);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

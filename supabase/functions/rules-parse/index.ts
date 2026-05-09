@@ -67,11 +67,12 @@ INTENCIONES POSIBLES:
 - "pago": pagar a empleados o colaboradores (nómina, salario, transferencia)
 - "factura": generar factura o solicitud de cobro a un cliente
 - "offramp": convertir cripto a dinero fiat o retirar a banco
+- "ayuda": el usuario pregunta qué puede hacer la app, pide ayuda, saluda o escribe algo que no es una instrucción financiera
 
 Responde SIEMPRE con este JSON (pon null en campos que no apliquen):
 
 {
-  "intent": "pago" | "factura" | "offramp",
+  "intent": "pago" | "factura" | "offramp" | "ayuda",
 
   // SOLO para intent="pago":
   "destinatarios": ["nombre1", "nombre2"],
@@ -89,14 +90,19 @@ Responde SIEMPRE con este JSON (pon null en campos que no apliquen):
   // SOLO para intent="offramp":
   "monto_offramp": 200,
   "moneda_origen": "SOL" | "USDC",
-  "destino_offramp": "descripción del destino"
+  "destino_offramp": "descripción del destino",
+
+  // SOLO para intent="ayuda":
+  "mensaje_ayuda": "respuesta amigable y breve explicando las 3 cosas que puedes hacer"
 }
 
 REGLAS:
 - La moneda para pagos siempre es "SOL"
 - Si dice "factura", "cobro", "invoice", "solicitud de pago a cliente" → intent="factura"
 - Si dice "retira", "convierte", "banco", "fiat", "off-ramp" → intent="offramp"
-- Para todo lo demás → intent="pago"
+- Si el usuario pregunta "qué puedes hacer", "ayuda", "help", "cómo funciona", "hola", "qué eres", o escribe algo que no es una instrucción financiera concreta → intent="ayuda"
+- Si es una instrucción de pago concreta con destinatarios y monto → intent="pago"
+- Para intent="ayuda", el mensaje_ayuda debe ser en español, máximo 3 líneas, mencionando las 3 funciones: pagar nómina en SOL, generar facturas, convertir cripto a fiat.
 - Responde SOLO el JSON, sin texto adicional, sin markdown.`;
 
 Deno.serve(async (req: Request) => {
@@ -230,6 +236,8 @@ Deno.serve(async (req: Request) => {
       monto_offramp: parsed.monto_offramp || null,
       moneda_origen: parsed.moneda_origen || null,
       destino_offramp: parsed.destino_offramp || null,
+      // Ayuda
+      mensaje_ayuda: parsed.mensaje_ayuda || null,
     };
 
     return new Response(JSON.stringify(result), {

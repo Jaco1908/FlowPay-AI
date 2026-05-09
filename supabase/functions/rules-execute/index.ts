@@ -80,6 +80,20 @@ Deno.serve(async (req: Request) => {
 
     const body: ParsedRuleBody = await req.json();
 
+    // 0. Balance check — fail fast before touching the DB
+    const empresaKeypairCheck = getEmpresaKeypair();
+    const recipientsWithWallet = (body.destinatariosConWallet || []).filter(d => d.wallet);
+    const totalLamports = Math.floor(body.monto_por_persona * 1_000_000_000) * recipientsWithWallet.length;
+    const empresaBalance = await CONNECTION.getBalance(empresaKeypairCheck.publicKey);
+    if (empresaBalance < totalLamports) {
+      const balanceSOL = (empresaBalance / 1_000_000_000).toFixed(4);
+      const requiredSOL = (totalLamports / 1_000_000_000).toFixed(4);
+      return new Response(
+        JSON.stringify({ error: `Saldo insuficiente. La empresa tiene ${balanceSOL} SOL pero se necesitan ${requiredSOL} SOL.` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // 1. Save rule to Supabase
     const supabase = getSupabaseServiceClient();
 

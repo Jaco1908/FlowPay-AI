@@ -1,4 +1,4 @@
-export type Intent = 'pago' | 'factura' | 'offramp';
+export type Intent = 'pago' | 'factura' | 'offramp' | 'ayuda';
 
 export interface ParsedRule {
   intent: Intent;
@@ -19,6 +19,8 @@ export interface ParsedRule {
   monto_offramp?: number;
   moneda_origen?: string;
   destino_offramp?: string;
+  // Ayuda
+  mensaje_ayuda?: string;
 }
 
 export interface ExecuteResult {

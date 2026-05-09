@@ -10,7 +10,7 @@ export default function InvoiceConfirm() {
   const [rule, setRule] = useState<ParsedRule | null>(null);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
-  const [invoiceId, setInvoiceId] = useState('');
+  const [invoiceId] = useState(() => `INV-${Date.now().toString(36).toUpperCase()}`);
 
   useEffect(() => {
     const stored = sessionStorage.getItem('parsedRule');
@@ -25,9 +25,8 @@ export default function InvoiceConfirm() {
   async function handleCreate() {
     if (!rule) return;
     setSaving(true);
-    const id = `INV-${Date.now().toString(36).toUpperCase()}`;
     await supabase.from('invoices').insert({
-      invoice_id: id,
+      invoice_id: invoiceId,
       cliente: rule.cliente,
       monto: rule.monto_factura,
       moneda_factura: rule.moneda_factura,
@@ -36,7 +35,6 @@ export default function InvoiceConfirm() {
       status: 'pendiente',
       raw_text: rule.textoOriginal,
     });
-    setInvoiceId(id);
     setDone(true);
     setSaving(false);
   }
@@ -160,7 +158,7 @@ export default function InvoiceConfirm() {
                   </div>
                   <div className="text-right">
                     <p className="text-xl font-black text-gray-900 tracking-tight">FACTURA</p>
-                    <p className="text-xs text-gray-400 mt-0.5">#{Math.random().toString(36).slice(2, 8).toUpperCase()}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">#{invoiceId}</p>
                   </div>
                 </div>
 

@@ -3,11 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Users, Coins, Clock, CalendarDays, ChevronRight } from 'lucide-react';
 import Header from '@/components/Header';
 import { executeRule } from '@/api/rules/execute';
-import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import type { ParsedRule } from '@/types';
-
-const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
-const EMPRESA_WALLET = '6iLi5YmwUbtejobpafvYM9NzMiFFbPLDnKgjoF6Rhr9e';
 
 const Confirm = () => {
   const navigate = useNavigate();
@@ -47,14 +43,6 @@ const Confirm = () => {
     setError(null);
 
     try {
-      const lamports = await connection.getBalance(new PublicKey(EMPRESA_WALLET));
-      const balanceSOL = lamports / LAMPORTS_PER_SOL;
-      if (balanceSOL < totalSOL) {
-        setError(`Saldo insuficiente. La empresa tiene ${balanceSOL.toFixed(4)} SOL pero se necesitan ${totalSOL.toFixed(4)} SOL.`);
-        setLoading(false);
-        return;
-      }
-
       const result = await executeRule(rule);
       sessionStorage.setItem('execResult', JSON.stringify(result));
       navigate('/success');

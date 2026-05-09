@@ -6,6 +6,7 @@ import Header from '@/components/Header';
 import { parseRule } from '@/api/rules/parse';
 import { supabase } from '@/lib/supabase';
 import { hashPassword } from '@/lib/crypto';
+import type { ParsedRule } from '@/types';
 
 const BASE58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
@@ -54,48 +55,100 @@ const Index = () => {
   const [missingForms, setMissingForms] = useState<MissingForm[]>([]);
   const [creatingUsers, setCreatingUsers] = useState(false);
   const [formErrors, setFormErrors] = useState<string | null>(null);
+  const [helpMessage, setHelpMessage] = useState<string | null>(null);
+  const [aiResponse, setAiResponse] = useState<ParsedRule | null>(null);
 
-  const handleAnalyze = async (retrying = false) => {
+  const HELP_PATTERNS = /^(hola|hello|hi|hey|buenos\s+días?|buenas|buen\s+día|qué\s+puedes|que\s+puedes|what\s+can|ayuda|help|cómo\s+funciona|como\s+funciona|qué\s+eres|que\s+eres|qué\s+haces|que\s+haces|para\s+qué|para\s+que|info|información)[\s.,!?]*/i;
+
+  function buildAITitle(parsed: ParsedRule): string {
+    if (parsed.intent === 'pago') return parsed.frecuencia ? 'Detecté un pago recurrente:' : 'Detecté un pago puntual:';
+    if (parsed.intent === 'factura') return 'Voy a crear una factura:';
+    if (parsed.intent === 'offramp') return 'Voy a convertir cripto a fiat:';
+    return 'Entendido:';
+  }
+
+  function buildAILines(parsed: ParsedRule): { label: string; value: string }[] {
+    const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+    if (parsed.intent === 'pago') {
+      const lines: { label: string; value: string }[] = [];
+      if (parsed.destinatarios?.length)
+        lines.push({ label: 'Destinatarios', value: parsed.destinatarios.map(cap).join(', ') });
+      if (parsed.monto_por_persona)
+        lines.push({ label: 'Monto por persona', value: `${parsed.monto_por_persona} ${parsed.moneda || 'SOL'}` });
+      if (parsed.frecuencia)
+        lines.push({ label: 'Frecuencia', value: cap(parsed.frecuencia) });
+      if (parsed.dia_de_pago)
+        lines.push({ label: 'Día de pago', value: cap(parsed.dia_de_pago) });
+      if (parsed.monto_por_persona && parsed.destinatarios?.length) {
+        const total = parsed.monto_por_persona * parsed.destinatarios.length;
+        const fmt = Number.isInteger(total) ? total.toString() : total.toFixed(4).replace(/\.?0+$/, '');
+        lines.push({ label: 'Total', value: `${fmt} ${parsed.moneda || 'SOL'}` });
+      }
+      return lines;
+    }
+    if (parsed.intent === 'factura') {
+      const lines: { label: string; value: string }[] = [];
+      if (parsed.cliente) lines.push({ label: 'Cliente', value: parsed.cliente });
+      if (parsed.monto_factura) lines.push({ label: 'Monto', value: `${parsed.monto_factura} ${parsed.moneda_factura || 'USD'}` });
+      if (parsed.descripcion_factura) lines.push({ label: 'Descripción', value: parsed.descripcion_factura });
+      return lines;
+    }
+    if (parsed.intent === 'offramp') {
+      const lines: { label: string; value: string }[] = [];
+      if (parsed.monto_por_persona) lines.push({ label: 'Monto', value: `${parsed.monto_por_persona} ${parsed.moneda || 'SOL'}` });
+      return lines;
+    }
+    return [];
+  }
+
+  const HELP_DEFAULT = 'Puedo hacer 3 cosas por ti: 1) Pagar nómina — transfiero SOL a tu equipo con una frase. 2) Generar facturas — creo y rastreo cobros a tus clientes. 3) Convertir cripto a fiat — convierto tu SOL a dinero en tu cuenta bancaria. ¿Por dónde quieres empezar?';
+
+  const handleAnalyze = async () => {
     if (!text.trim() || loading) return;
+
+    if (HELP_PATTERNS.test(text.trim())) {
+      setHelpMessage(HELP_DEFAULT);
+      return;
+    }
+
     setLoading(true);
     setError(null);
+    setAiResponse(null);
 
     try {
       const parsed = await parseRule(text.trim());
       sessionStorage.setItem('parsedRule', JSON.stringify(parsed));
 
-      if (parsed.intent === 'factura') {
-        navigate('/invoice');
+      if (parsed.intent === 'ayuda') {
+        setHelpMessage(parsed.mensaje_ayuda || HELP_DEFAULT);
         return;
       }
 
-      if (parsed.intent === 'offramp') {
-        navigate('/offramp');
-        return;
-      }
-
-      // intent === 'pago'
-      const missing = (parsed.destinatariosConWallet || []).filter((d: any) => !d.wallet);
-
-      if (missing.length > 0 && !retrying) {
-        setMissingForms(missing.map((d: any) => ({
-          nombre: d.nombre.charAt(0).toUpperCase() + d.nombre.slice(1),
-          email: '',
-          wallet: '',
-          password: '',
-          created: false,
-        })));
-        setShowMissingModal(true);
-      } else {
-        navigate('/confirm');
-      }
+      setAiResponse(parsed);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al analizar la instrucción';
-      setModalError(msg);
+      setError(err instanceof Error ? err.message : 'Error al analizar la instrucción');
     } finally {
       setLoading(false);
     }
   };
+
+  function handleConfirm() {
+    if (!aiResponse) return;
+
+    if (aiResponse.intent === 'factura') { navigate('/invoice'); return; }
+    if (aiResponse.intent === 'offramp') { navigate('/offramp'); return; }
+
+    const missing = (aiResponse.destinatariosConWallet || []).filter((d: any) => !d.wallet);
+    if (missing.length > 0) {
+      setMissingForms(missing.map((d: any) => ({
+        nombre: d.nombre.charAt(0).toUpperCase() + d.nombre.slice(1),
+        email: '', wallet: '', password: '', created: false,
+      })));
+      setShowMissingModal(true);
+    } else {
+      navigate('/confirm');
+    }
+  }
 
   function updateForm(index: number, field: keyof MissingForm, value: string) {
     setMissingForms(prev => prev.map((f, i) => i === index ? { ...f, [field]: value } : f));
@@ -196,6 +249,35 @@ const Index = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Modal: ayuda */}
+      {helpMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
+          <div className="fp-card w-full max-w-md p-6 animate-fade-in">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                  <Zap className="w-5 h-5 text-primary" />
+                </div>
+                <h2 className="text-lg font-bold text-foreground">FlowPay AI</h2>
+              </div>
+              <button onClick={() => setHelpMessage(null)}
+                className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-muted-foreground text-sm leading-relaxed mb-5">{helpMessage}</p>
+            <div className="space-y-2">
+              {QUICK_CHIPS.map((chip, i) => (
+                <button key={i} onClick={() => { setText(chip.text); setHelpMessage(null); }}
+                  className={`w-full text-left px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${chip.color}`}>
+                  {chip.label} →
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal: colaboradores no encontrados */}
       {showMissingModal && (
@@ -363,7 +445,7 @@ const Index = () => {
           <div className="mb-4">
             <textarea
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => { setText(e.target.value); setAiResponse(null); }}
               placeholder='Ejemplo: "Paga 0.05 SOL a Ana, Luis y Carlos cada viernes"'
               className="fp-input w-full px-5 py-4 text-base resize-none placeholder:text-muted-foreground/60"
               style={{ minHeight: '120px' }}
@@ -390,6 +472,62 @@ const Index = () => {
           >
             <span>Analizar instrucción →</span>
           </button>
+
+          {/* AI Response Card */}
+          <AnimatePresence>
+            {aiResponse && (
+              <motion.div
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.28 }}
+                className="mt-5 space-y-3"
+              >
+                {/* User bubble */}
+                <div className="flex justify-end">
+                  <div className="max-w-[85%] bg-primary/10 border border-primary/20 rounded-2xl rounded-tr-sm px-4 py-3">
+                    <p className="text-sm text-foreground/80 italic">"{aiResponse.textoOriginal || text}"</p>
+                  </div>
+                </div>
+
+                {/* AI bubble */}
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-0.5">
+                    <Zap className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 fp-card p-5">
+                    <p className="text-sm font-semibold text-foreground mb-3">
+                      Entendido. {buildAITitle(aiResponse)}
+                    </p>
+                    <div className="space-y-2 mb-4">
+                      {buildAILines(aiResponse).map((line, i) => (
+                        <div key={i} className="flex items-baseline gap-2 text-sm">
+                          <span className="text-primary font-bold shrink-0">→</span>
+                          <span className="text-muted-foreground shrink-0">{line.label}:</span>
+                          <span className="text-foreground font-semibold">{line.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-4">¿Ejecuto?</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setAiResponse(null); }}
+                        className="fp-btn-secondary flex-1 py-2.5 text-sm"
+                      >
+                        ← Modificar
+                      </button>
+                      <button
+                        onClick={handleConfirm}
+                        className="fp-btn-primary flex-[2] py-2.5 text-sm"
+                      >
+                        Sí, ejecutar ✓
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {error && (
             <div className="mt-4 flex items-center gap-2 text-destructive text-sm animate-fade-in">
