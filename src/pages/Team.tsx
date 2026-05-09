@@ -1,7 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { UserPlus, Trash2, Wallet, Mail, User, Lock, X } from 'lucide-react';
+import { UserPlus, Trash2, Wallet, Mail, User, Lock, X, CheckCircle, AlertCircle } from 'lucide-react';
 import Header from '@/components/Header';
 import { supabase } from '@/lib/supabase';
+import { hashPassword } from '@/lib/crypto';
+
+const BASE58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+function isValidSolanaWallet(address: string): boolean {
+  return BASE58.test(address.trim());
+}
 
 interface Employee {
   id: string;
@@ -19,6 +25,7 @@ export default function Team() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Employee | null>(null);
 
   const [form, setForm] = useState({
     nombre: '', email: '', wallet: '', password: ''
@@ -40,11 +47,46 @@ export default function Team() {
     e.preventDefault();
     setSaving(true);
     setError(null);
+
+    const nombreNorm = form.nombre.trim().toLowerCase();
+    const nombreDuplicado = employees.some(e => e.nombre.toLowerCase() === nombreNorm);
+    if (nombreDuplicado) {
+      setError('Ya existe un colaborador con ese nombre. Usa el nombre completo para diferenciarlos.');
+      setSaving(false);
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.email.trim())) {
+      setError('El correo electrónico no tiene un formato válido.');
+      setSaving(false);
+      return;
+    }
+
+    if (form.nombre.trim().length < 2) {
+      setError('El nombre debe tener al menos 2 caracteres.');
+      setSaving(false);
+      return;
+    }
+
+    if (form.password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres.');
+      setSaving(false);
+      return;
+    }
+
+    if (form.wallet.trim() && !isValidSolanaWallet(form.wallet)) {
+      setError('La dirección de wallet no es válida. Debe tener 32-44 caracteres Base58.');
+      setSaving(false);
+      return;
+    }
+
+    const hashed = await hashPassword(form.password);
     const { error } = await supabase.from('employees').insert({
       nombre: form.nombre.trim(),
       email: form.email.toLowerCase().trim(),
       wallet: form.wallet.trim() || null,
-      password: form.password,
+      password: hashed,
       role: 'employee',
     });
     if (error) {
@@ -57,10 +99,16 @@ export default function Team() {
     setSaving(false);
   }
 
-  async function deleteEmployee(id: string) {
-    setDeleting(id);
-    await supabase.from('employees').delete().eq('id', id);
-    setEmployees(prev => prev.filter(e => e.id !== id));
+  async function deleteEmployee(emp: Employee) {
+    setDeleting(emp.id);
+    const { error } = await supabase.from('employees').delete().eq('id', emp.id);
+    if (error) {
+      alert('Error al eliminar: ' + error.message);
+      setDeleting(null);
+      return;
+    }
+    setEmployees(prev => prev.filter(e => e.id !== emp.id));
+    setConfirmDelete(null);
     setDeleting(null);
   }
 
@@ -89,7 +137,47 @@ export default function Team() {
             </button>
           </div>
 
-          {/* Modal crear empleado */}
+          {/* Modal confirmar eliminación */}
+        {confirmDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
+            <div className="fp-card w-full max-w-md p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-destructive/15 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-5 h-5 text-destructive" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">Eliminar colaborador</h2>
+                  <p className="text-xs text-muted-foreground">Esta acción no se puede deshacer</p>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+                ¿Eliminar a <span className="text-foreground font-medium">{confirmDelete.nombre}</span>? Ya no podrá iniciar sesión ni recibir pagos automáticos.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmDelete(null)}
+                  disabled={deleting === confirmDelete.id}
+                  className="fp-btn-secondary flex-1 py-3 text-sm"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => deleteEmployee(confirmDelete)}
+                  disabled={deleting === confirmDelete.id}
+                  className="fp-btn-primary flex-[2] py-3 text-sm bg-destructive hover:bg-destructive/90 border-destructive"
+                >
+                  {deleting === confirmDelete.id ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="fp-spinner" /><span>Eliminando...</span>
+                    </div>
+                  ) : 'Sí, eliminar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal crear empleado */}
           {showForm && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
               <div className="fp-card w-full max-w-md p-6">
@@ -145,11 +233,22 @@ export default function Team() {
                         value={form.wallet}
                         onChange={e => setForm(f => ({ ...f, wallet: e.target.value }))}
                         placeholder="7xKp9mNqR7vBwJ2sLdYf..."
-                        className="fp-input w-full pl-10 pr-4 py-3 text-sm font-mono"
+                        className={`fp-input w-full pl-10 pr-10 py-3 text-sm font-mono ${
+                          form.wallet && !isValidSolanaWallet(form.wallet) ? 'border-destructive' : ''
+                        }`}
                       />
+                      {form.wallet && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                          {isValidSolanaWallet(form.wallet)
+                            ? <CheckCircle className="w-4 h-4 text-green-400" />
+                            : <AlertCircle className="w-4 h-4 text-destructive" />}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground/60 mt-1">
-                      Dirección pública de Solana del colaborador
+                      {form.wallet && !isValidSolanaWallet(form.wallet)
+                        ? <span className="text-destructive">Dirección inválida (32-44 caracteres Base58)</span>
+                        : 'Dirección pública de Solana del colaborador'}
                     </p>
                   </div>
 
@@ -166,7 +265,7 @@ export default function Team() {
                         placeholder="••••••••"
                         className="fp-input w-full pl-10 pr-4 py-3 text-sm"
                         required
-                        minLength={4}
+                        minLength={6}
                       />
                     </div>
                   </div>
@@ -241,7 +340,7 @@ export default function Team() {
                       </span>
                     )}
                     <button
-                      onClick={() => deleteEmployee(emp.id)}
+                      onClick={() => setConfirmDelete(emp)}
                       disabled={deleting === emp.id}
                       className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
                     >

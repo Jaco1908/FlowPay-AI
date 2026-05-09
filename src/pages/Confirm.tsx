@@ -3,7 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Users, Coins, Clock, CalendarDays, ChevronRight } from 'lucide-react';
 import Header from '@/components/Header';
 import { executeRule } from '@/api/rules/execute';
+import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import type { ParsedRule } from '@/types';
+
+const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+const EMPRESA_WALLET = '6iLi5YmwUbtejobpafvYM9NzMiFFbPLDnKgjoF6Rhr9e';
 
 const Confirm = () => {
   const navigate = useNavigate();
@@ -31,7 +35,9 @@ const Confirm = () => {
   if (!rule.frecuencia) nullFields.push('Frecuencia');
   if (!rule.destinatarios || rule.destinatarios.length === 0) nullFields.push('Destinatarios');
 
-  const hasBlockingNulls = nullFields.length > 0;
+  const montoInvalido = !!rule.monto_por_persona && rule.monto_por_persona <= 0;
+  const hasBlockingNulls = nullFields.length > 0 || montoInvalido;
+  const totalSOL = (rule.monto_por_persona || 0) * (rule.destinatarios?.length || 0);
 
   const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -41,6 +47,14 @@ const Confirm = () => {
     setError(null);
 
     try {
+      const lamports = await connection.getBalance(new PublicKey(EMPRESA_WALLET));
+      const balanceSOL = lamports / LAMPORTS_PER_SOL;
+      if (balanceSOL < totalSOL) {
+        setError(`Saldo insuficiente. La empresa tiene ${balanceSOL.toFixed(4)} SOL pero se necesitan ${totalSOL.toFixed(4)} SOL.`);
+        setLoading(false);
+        return;
+      }
+
       const result = await executeRule(rule);
       sessionStorage.setItem('execResult', JSON.stringify(result));
       navigate('/success');
@@ -151,10 +165,12 @@ const Confirm = () => {
                 <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-semibold text-destructive mb-1">
-                    Necesito más información
+                    {montoInvalido ? 'Monto inválido' : 'Necesito más información'}
                   </p>
                   <p className="text-sm text-destructive/80">
-                    Campos faltantes: {nullFields.join(', ')}
+                    {montoInvalido
+                      ? `El monto debe ser mayor a 0. Escribe algo como "Paga 0.05 SOL a Ana".`
+                      : `Campos faltantes: ${nullFields.join(', ')}`}
                   </p>
                 </div>
               </div>

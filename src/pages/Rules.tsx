@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Pause, Users, Coins, Calendar, Clock, Plus, RefreshCw } from 'lucide-react';
+import { Play, Pause, Users, Coins, Calendar, Clock, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import Header from '@/components/Header';
 import { supabase } from '@/lib/supabase';
 
@@ -39,6 +39,8 @@ const Rules = () => {
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Rule | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   async function fetchRules() {
     setLoading(true);
@@ -73,11 +75,64 @@ const Rules = () => {
     setToggling(null);
   }
 
+  async function deleteRule(rule: Rule) {
+    setDeleting(true);
+    const { error } = await supabase.from('rules').delete().eq('id', rule.id);
+    if (error) {
+      alert('Error al eliminar: ' + error.message);
+      setDeleting(false);
+      return;
+    }
+    setRules(prev => prev.filter(r => r.id !== rule.id));
+    setConfirmDelete(null);
+    setDeleting(false);
+  }
+
   const activeCount = rules.filter(r => r.status === 'active').length;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
+
+      {/* Modal confirmar eliminación */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
+          <div className="fp-card w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-destructive/15 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-destructive" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-foreground">Eliminar regla</h2>
+                <p className="text-xs text-muted-foreground">Esta acción no se puede deshacer</p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+              ¿Eliminar la regla <span className="text-foreground font-medium">"{confirmDelete.raw_text}"</span>? El historial de pagos ejecutados se conservará.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                disabled={deleting}
+                className="fp-btn-secondary flex-1 py-3 text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => deleteRule(confirmDelete)}
+                disabled={deleting}
+                className="fp-btn-primary flex-[2] py-3 text-sm bg-destructive hover:bg-destructive/90 border-destructive"
+              >
+                {deleting ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="fp-spinner" /><span>Eliminando...</span>
+                  </div>
+                ) : 'Sí, eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="flex-1 px-4 md:px-6 py-6 md:py-10">
         <div className="max-w-3xl mx-auto">
@@ -89,7 +144,7 @@ const Rules = () => {
                 Reglas activas
               </h1>
               <p className="text-muted-foreground text-sm">
-                {activeCount} de {rules.length} reglas ejecutándose automáticamente
+                {activeCount} activas · {rules.length} en total
               </p>
             </div>
             <div className="flex gap-2">
@@ -174,6 +229,13 @@ const Rules = () => {
                           <><Play className="w-3 h-3" /> Activar</>
                         )}
                       </button>
+                      {/* Delete button */}
+                      <button
+                        onClick={() => setConfirmDelete(rule)}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
 
@@ -195,7 +257,7 @@ const Rules = () => {
                         <span className="text-xs text-muted-foreground">Monto</span>
                       </div>
                       <p className="text-sm font-semibold text-green-400">
-                        {rule.monto_por_persona} {rule.moneda || 'USDC'}
+                        {rule.monto_por_persona} {rule.moneda || 'SOL'}
                       </p>
                     </div>
 
@@ -223,11 +285,11 @@ const Rules = () => {
                   {/* Footer */}
                   <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/50">
                     <span className="text-xs text-muted-foreground">
-                      Creada {new Date(rule.created_at).toLocaleDateString('es', {
-                        day: '2-digit', month: 'short', year: 'numeric'
-                      })}
+                      {rule.last_executed_at
+                        ? `Último pago: ${new Date(rule.last_executed_at).toLocaleDateString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+                        : 'Sin ejecuciones aún'}
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs font-medium text-primary">
                       {rule.execution_count} ejecuciones
                     </span>
                   </div>

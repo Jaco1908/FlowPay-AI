@@ -65,7 +65,7 @@ const SYSTEM_PROMPT = `Eres un analizador de instrucciones de pago cripto.
 Extrae del texto del usuario estos campos en formato JSON:
 - destinatarios: array de strings con nombres en minúscula
 - monto_por_persona: número (solo el número, sin símbolo)
-- moneda: siempre "USDC" (si dice dólares o dolares también es USDC)
+- moneda: siempre "SOL" (si dice dólares, USDC o dolares también ponlo como "SOL")
 - frecuencia: "semanal" | "mensual" | "única vez"
 - dia_de_pago: "lunes"|"martes"|"miércoles"|"jueves"|"viernes"|"sábado"|"domingo" o null
 Si un campo no está claro, ponlo como null.

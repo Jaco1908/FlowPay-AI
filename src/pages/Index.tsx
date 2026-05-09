@@ -84,7 +84,7 @@ const Index = () => {
           <div className="flex justify-center mb-6">
             <div className="fp-badge gap-2">
               <Zap className="w-3.5 h-3.5 text-primary" />
-              <span>Powered by Solana + Groq AI</span>
+              <span>Powered by Solana + Groq AI · Red Devnet</span>
             </div>
           </div>
 
@@ -105,6 +105,7 @@ const Index = () => {
               placeholder='Ejemplo: "Paga 50 USDC a Ana, Luis y Carlos cada viernes"'
               className="fp-input w-full px-5 py-4 text-base resize-none placeholder:text-muted-foreground/60"
               style={{ minHeight: '120px' }}
+              maxLength={300}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -112,6 +113,12 @@ const Index = () => {
                 }
               }}
             />
+          </div>
+
+          <div className="flex justify-end mb-2">
+            <span className={`text-xs ${text.length > 270 ? 'text-destructive' : 'text-muted-foreground/40'}`}>
+              {text.length}/300
+            </span>
           </div>
 
           {/* Submit button */}

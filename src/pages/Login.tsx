@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Zap, Mail, Lock, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_SECONDS = 30;
 
 export default function Login() {
   const navigate = useNavigate();
@@ -10,15 +13,42 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attempts, setAttempts] = useState(0);
+  const [lockout, setLockout] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (lockout > 0) {
+      timerRef.current = setInterval(() => {
+        setLockout(prev => {
+          if (prev <= 1) {
+            clearInterval(timerRef.current!);
+            setAttempts(0);
+            setError(null);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [lockout]);
 
   if (user) {
     navigate(user.role === 'admin' ? '/' : '/employee', { replace: true });
     return null;
   }
 
+  const isLocked = lockout > 0;
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    if (!email || !password) return;
+    if (!email || !password || isLocked) return;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setError('Ingresa un correo electrónico válido.');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -29,7 +59,14 @@ export default function Login() {
         navigate(u.role === 'admin' ? '/' : '/employee', { replace: true });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al iniciar sesión');
+      const newAttempts = attempts + 1;
+      setAttempts(newAttempts);
+      if (newAttempts >= MAX_ATTEMPTS) {
+        setLockout(LOCKOUT_SECONDS);
+        setError(`Demasiados intentos. Espera ${LOCKOUT_SECONDS} segundos.`);
+      } else {
+        setError(`Credenciales incorrectas. Intentos restantes: ${MAX_ATTEMPTS - newAttempts}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -96,14 +133,16 @@ export default function Login() {
 
           <button
             type="submit"
-            disabled={loading || !email || !password}
-            className="fp-btn-primary w-full py-3 text-sm"
+            disabled={loading || !email || !password || isLocked}
+            className="fp-btn-primary w-full py-3 text-sm disabled:opacity-50"
           >
             {loading ? (
               <div className="flex items-center justify-center gap-2">
                 <div className="fp-spinner" />
                 <span>Entrando...</span>
               </div>
+            ) : isLocked ? (
+              `Bloqueado — espera ${lockout}s`
             ) : 'Entrar →'}
           </button>
         </form>

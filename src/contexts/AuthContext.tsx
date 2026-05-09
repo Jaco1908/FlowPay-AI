@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { hashPassword } from '@/lib/crypto';
 
 interface Employee {
   id: string;
@@ -31,11 +32,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function login(email: string, password: string) {
+    const hashed = await hashPassword(password);
+
     const { data, error } = await supabase
       .from('employees')
       .select('id, nombre, email, wallet, role')
       .eq('email', email.toLowerCase().trim())
-      .eq('password', password)
+      .eq('password', hashed)
       .single();
 
     if (error || !data) throw new Error('Correo o contraseña incorrectos');

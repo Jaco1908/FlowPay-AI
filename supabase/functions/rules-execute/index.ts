@@ -134,7 +134,7 @@ Deno.serve(async (req: Request) => {
 
       try {
         const toPubkey = new PublicKey(dest.wallet);
-        const lamports = Math.floor(body.monto_por_persona * 1_000_000);
+        const lamports = Math.floor(body.monto_por_persona * 1_000_000_000);
 
         const transaction = new Transaction().add(
           SystemProgram.transfer({
