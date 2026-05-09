@@ -13,6 +13,7 @@ export async function executeRule(rule: ParsedRule): Promise<ExecuteResult> {
     headers: {
       'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
       'Content-Type': 'application/json',
+      'X-FlowPay-Secret': import.meta.env.VITE_FLOWPAY_SECRET || '',
     },
     body: JSON.stringify(rule),
   });

@@ -24,15 +24,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const stored = localStorage.getItem('flowpay_user');
-    if (stored) {
-      try { setUser(JSON.parse(stored)); } catch {}
+    async function verifySession() {
+      const stored = localStorage.getItem('flowpay_user');
+      if (stored) {
+        try {
+          const cached = JSON.parse(stored);
+          const { data } = await supabase
+            .from('employees')
+            .select('id, nombre, email, wallet, role')
+            .eq('id', cached.id)
+            .single();
+          if (data) {
+            setUser(data as Employee);
+            localStorage.setItem('flowpay_user', JSON.stringify(data));
+          } else {
+            localStorage.removeItem('flowpay_user');
+          }
+        } catch {
+          localStorage.removeItem('flowpay_user');
+        }
+      }
+      setLoading(false);
     }
-    setLoading(false);
+    verifySession();
   }, []);
 
   async function login(email: string, password: string) {
-    const hashed = await hashPassword(password);
+    const hashed = await hashPassword(password, email.toLowerCase().trim());
 
     const { data, error } = await supabase
       .from('employees')

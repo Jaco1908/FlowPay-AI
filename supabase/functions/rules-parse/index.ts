@@ -4,7 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey, X-FlowPay-Secret",
 };
 
 interface Employee {
@@ -77,6 +77,14 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    const secret = Deno.env.get("FLOWPAY_SECRET");
+    if (secret && req.headers.get("X-FlowPay-Secret") !== secret) {
+      return new Response(JSON.stringify({ error: "No autorizado" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { text } = await req.json();
 
     if (!text || typeof text !== "string") {

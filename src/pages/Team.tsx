@@ -81,7 +81,7 @@ export default function Team() {
       return;
     }
 
-    const hashed = await hashPassword(form.password);
+    const hashed = await hashPassword(form.password, form.email.toLowerCase().trim());
     const { error } = await supabase.from('employees').insert({
       nombre: form.nombre.trim(),
       email: form.email.toLowerCase().trim(),

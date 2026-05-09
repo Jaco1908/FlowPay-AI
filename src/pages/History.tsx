@@ -73,7 +73,7 @@ const History = () => {
     fetchHistory();
   }, []);
 
-  const totalUsdc = rows
+  const totalSol = rows
     .filter(r => r.status === 'completed')
     .reduce((sum, r) => sum + Number(r.monto), 0);
 
@@ -112,8 +112,8 @@ const History = () => {
               <p className="text-sm text-muted-foreground mt-1">Confirmadas</p>
             </div>
             <div className="fp-card p-5 text-center">
-              <p className="text-3xl font-bold text-primary">{totalUsdc.toFixed(0)}</p>
-              <p className="text-sm text-muted-foreground mt-1">USDC enviados</p>
+              <p className="text-3xl font-bold text-primary">{totalSol.toFixed(4)}</p>
+              <p className="text-sm text-muted-foreground mt-1">SOL enviados</p>
             </div>
           </div>
 
@@ -165,7 +165,7 @@ const History = () => {
                           </td>
                           <td className="px-5 py-4">
                             <span className="text-green-400 font-semibold">
-                              {row.monto} {row.rules?.moneda || 'USDC'}
+                              {row.monto} {row.rules?.moneda || 'SOL'}
                             </span>
                           </td>
                           <td className="px-5 py-4">
@@ -209,7 +209,7 @@ const History = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-foreground font-semibold capitalize">{row.destinatario_nombre}</p>
-                          <p className="text-green-400 font-bold">{row.monto} {row.rules?.moneda || 'USDC'}</p>
+                          <p className="text-green-400 font-bold">{row.monto} {row.rules?.moneda || 'SOL'}</p>
                         </div>
                         {row.status === 'completed' ? (
                           <span className="fp-badge-success text-xs px-2.5 py-1 rounded-full font-medium">✓ Confirmado</span>

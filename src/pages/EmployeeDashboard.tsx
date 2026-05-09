@@ -70,12 +70,17 @@ export default function EmployeeDashboard() {
       supabase
         .from('rules')
         .select('id, raw_text, monto_por_persona, moneda, frecuencia, dia_de_pago, status, destinatarios')
-        .contains('destinatarios', JSON.stringify([{ nombre }]))
     ]);
 
     if (exResult.data) setExecutions(exResult.data as unknown as Execution[]);
 
-    if (ruleResult.data) setRules(ruleResult.data as Rule[]);
+    if (ruleResult.data) {
+      const filtered = ruleResult.data.filter((r: any) =>
+        Array.isArray(r.destinatarios) &&
+        r.destinatarios.some((d: any) => d.nombre?.toLowerCase() === nombre)
+      );
+      setRules(filtered as Rule[]);
+    }
 
     setLoading(false);
   }
@@ -92,7 +97,7 @@ export default function EmployeeDashboard() {
       return;
     }
     setPwLoading(true);
-    const hashedCurrent = await hashPassword(pwForm.current);
+    const hashedCurrent = await hashPassword(pwForm.current, user!.email.toLowerCase());
     const { data } = await supabase
       .from('employees')
       .select('id')
@@ -104,7 +109,7 @@ export default function EmployeeDashboard() {
       setPwLoading(false);
       return;
     }
-    const hashedNew = await hashPassword(pwForm.next);
+    const hashedNew = await hashPassword(pwForm.next, user!.email.toLowerCase());
     await supabase.from('employees').update({ password: hashedNew }).eq('id', user!.id);
     setPwSuccess(true);
     setPwLoading(false);
