@@ -1,0 +1,244 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@layer base {
+  :root {
+    /* FlowPay AI — Dark fintech theme */
+    --background: 224 71% 3%;        /* #030712 */
+    --foreground: 210 20% 95%;
+
+    --card: 222 47% 8%;              /* #111827 */
+    --card-foreground: 210 20% 95%;
+
+    --popover: 222 47% 8%;
+    --popover-foreground: 210 20% 95%;
+
+    --primary: 217 91% 60%;          /* #3B82F6 blue */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 222 30% 12%;
+    --secondary-foreground: 210 20% 80%;
+
+    --muted: 222 20% 14%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 263 70% 58%;           /* #7C3AED purple */
+    --accent-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;          /* #22C55E green */
+    --success-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 222 20% 14%;
+    --input: 222 30% 12%;
+    --ring: 217 91% 60%;
+
+    --radius: 0.875rem;
+
+    --sidebar-background: 222 47% 6%;
+    --sidebar-foreground: 210 20% 82%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 20% 12%;
+    --sidebar-accent-foreground: 210 20% 82%;
+    --sidebar-border: 222 20% 12%;
+    --sidebar-ring: 217 91% 60%;
+
+    /* Custom design tokens */
+    --gradient-blue: linear-gradient(135deg, #3B82F6 0%, #6366F1 100%);
+    --gradient-green: linear-gradient(135deg, #22C55E 0%, #10B981 100%);
+    --gradient-purple: linear-gradient(135deg, #7C3AED 0%, #A855F7 100%);
+    --gradient-surface: linear-gradient(180deg, hsl(222 47% 8%) 0%, hsl(224 71% 3%) 100%);
+    --gradient-glow: radial-gradient(ellipse at 50% 0%, hsl(217 91% 60% / 0.08) 0%, transparent 60%);
+    --shadow-glow: 0 0 40px hsl(217 91% 60% / 0.15);
+    --shadow-green-glow: 0 0 30px hsl(142 71% 45% / 0.2);
+    --shadow-card: 0 4px 24px hsl(0 0% 0% / 0.4);
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* ── Wallet button override ── */
+.wallet-adapter-button {
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border-radius: var(--radius) !important;
+  font-weight: 600 !important;
+  font-size: 0.875rem !important;
+  padding: 0.625rem 1.25rem !important;
+  transition: var(--transition-smooth) !important;
+  border: 1px solid hsl(217 91% 60% / 0.3) !important;
+}
+
+.wallet-adapter-button:hover {
+  background: hsl(217 91% 55%) !important;
+  box-shadow: var(--shadow-glow) !important;
+}
+
+.wallet-adapter-modal-wrapper {
+  background-color: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: var(--radius) !important;
+}
+
+.wallet-adapter-modal-title {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* ── Custom utility classes ── */
+@layer utilities {
+  .fp-card {
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
+  }
+
+  .fp-input {
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    color: hsl(var(--foreground));
+    transition: var(--transition-smooth);
+  }
+
+  .fp-input:focus {
+    outline: none;
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 3px hsl(217 91% 60% / 0.15);
+  }
+
+  .fp-btn-primary {
+    background: var(--gradient-blue);
+    color: hsl(var(--primary-foreground));
+    border-radius: var(--radius);
+    font-weight: 600;
+    transition: var(--transition-smooth);
+    box-shadow: 0 2px 12px hsl(217 91% 60% / 0.25);
+  }
+
+  .fp-btn-primary:hover:not(:disabled) {
+    box-shadow: var(--shadow-glow);
+    transform: translateY(-1px);
+  }
+
+  .fp-btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .fp-btn-green {
+    background: var(--gradient-green);
+    color: hsl(var(--success-foreground));
+    border-radius: var(--radius);
+    font-weight: 600;
+    transition: var(--transition-smooth);
+    box-shadow: 0 2px 12px hsl(142 71% 45% / 0.25);
+  }
+
+  .fp-btn-green:hover:not(:disabled) {
+    box-shadow: var(--shadow-green-glow);
+    transform: translateY(-1px);
+  }
+
+  .fp-btn-green:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .fp-btn-secondary {
+    background-color: hsl(var(--secondary));
+    color: hsl(var(--secondary-foreground));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    font-weight: 500;
+    transition: var(--transition-smooth);
+  }
+
+  .fp-btn-secondary:hover {
+    background-color: hsl(222 30% 16%);
+    border-color: hsl(222 20% 22%);
+  }
+
+  .fp-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border: 1px solid hsl(var(--border));
+    background-color: hsl(var(--secondary));
+    color: hsl(var(--muted-foreground));
+  }
+
+  .fp-badge-success {
+    background-color: hsl(142 71% 45% / 0.12);
+    border-color: hsl(142 71% 45% / 0.3);
+    color: hsl(var(--success));
+  }
+
+  .fp-badge-error {
+    background-color: hsl(0 72% 51% / 0.12);
+    border-color: hsl(0 72% 51% / 0.3);
+    color: hsl(var(--destructive));
+  }
+
+  .fp-badge-purple {
+    background-color: hsl(263 70% 58% / 0.12);
+    border-color: hsl(263 70% 58% / 0.3);
+    color: hsl(var(--accent));
+  }
+}
+
+/* ── Animations ── */
+@keyframes fp-spin {
+  to { transform: rotate(360deg); }
+}
+
+.fp-spinner {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid hsl(var(--primary-foreground) / 0.3);
+  border-top-color: hsl(var(--primary-foreground));
+  border-radius: 50%;
+  animation: fp-spin 0.6s linear infinite;
+}
+
+.fp-spinner-blue {
+  border-color: hsl(var(--primary) / 0.3);
+  border-top-color: hsl(var(--primary));
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 3px;
+}
