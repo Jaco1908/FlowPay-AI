@@ -18,6 +18,10 @@ import History from './pages/History';
 import Rules from './pages/Rules';
 import Team from './pages/Team';
 import EmployeeDashboard from './pages/EmployeeDashboard';
+import InvoiceConfirm from './pages/InvoiceConfirm';
+import OffRamp from './pages/OffRamp';
+import Invoices from './pages/Invoices';
+import Dashboard from './pages/Dashboard';
 import NotFound from './pages/NotFound';
 
 import '@solana/wallet-adapter-react-ui/styles.css';
@@ -42,6 +46,10 @@ const App = () => {
               <Route path="/history" element={<ProtectedRoute role="admin"><History /></ProtectedRoute>} />
               <Route path="/rules" element={<ProtectedRoute role="admin"><Rules /></ProtectedRoute>} />
               <Route path="/team" element={<ProtectedRoute role="admin"><Team /></ProtectedRoute>} />
+              <Route path="/invoice" element={<ProtectedRoute role="admin"><InvoiceConfirm /></ProtectedRoute>} />
+              <Route path="/offramp" element={<ProtectedRoute role="admin"><OffRamp /></ProtectedRoute>} />
+              <Route path="/invoices" element={<ProtectedRoute role="admin"><Invoices /></ProtectedRoute>} />
+              <Route path="/dashboard" element={<ProtectedRoute role="admin"><Dashboard /></ProtectedRoute>} />
 
               {/* Ruta del empleado */}
               <Route path="/employee" element={<ProtectedRoute role="employee"><EmployeeDashboard /></ProtectedRoute>} />

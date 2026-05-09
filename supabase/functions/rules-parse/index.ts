@@ -61,15 +61,43 @@ function findWallet(nombre: string, employees: Employee[]): MatchResult {
   };
 }
 
-const SYSTEM_PROMPT = `Eres un analizador de instrucciones de pago cripto.
-Extrae del texto del usuario estos campos en formato JSON:
-- destinatarios: array de strings con nombres en minúscula
-- monto_por_persona: número (solo el número, sin símbolo)
-- moneda: siempre "SOL" (si dice dólares, USDC o dolares también ponlo como "SOL")
-- frecuencia: "semanal" | "mensual" | "única vez"
-- dia_de_pago: "lunes"|"martes"|"miércoles"|"jueves"|"viernes"|"sábado"|"domingo" o null
-Si un campo no está claro, ponlo como null.
-Responde SOLO el JSON válido, sin texto adicional, sin markdown, sin bloques de código.`;
+const SYSTEM_PROMPT = `Eres un orquestador financiero cripto. Clasifica la intención del usuario y extrae los datos relevantes.
+
+INTENCIONES POSIBLES:
+- "pago": pagar a empleados o colaboradores (nómina, salario, transferencia)
+- "factura": generar factura o solicitud de cobro a un cliente
+- "offramp": convertir cripto a dinero fiat o retirar a banco
+
+Responde SIEMPRE con este JSON (pon null en campos que no apliquen):
+
+{
+  "intent": "pago" | "factura" | "offramp",
+
+  // SOLO para intent="pago":
+  "destinatarios": ["nombre1", "nombre2"],
+  "monto_por_persona": 0.05,
+  "moneda": "SOL",
+  "frecuencia": "semanal" | "mensual" | "única vez",
+  "dia_de_pago": "lunes"|"martes"|"miércoles"|"jueves"|"viernes"|null,
+
+  // SOLO para intent="factura":
+  "cliente": "nombre del cliente o empresa",
+  "monto_factura": 1000,
+  "moneda_factura": "USD" | "SOL" | "USDC",
+  "descripcion_factura": "descripción del servicio",
+
+  // SOLO para intent="offramp":
+  "monto_offramp": 200,
+  "moneda_origen": "SOL" | "USDC",
+  "destino_offramp": "descripción del destino"
+}
+
+REGLAS:
+- La moneda para pagos siempre es "SOL"
+- Si dice "factura", "cobro", "invoice", "solicitud de pago a cliente" → intent="factura"
+- Si dice "retira", "convierte", "banco", "fiat", "off-ramp" → intent="offramp"
+- Para todo lo demás → intent="pago"
+- Responde SOLO el JSON, sin texto adicional, sin markdown.`;
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -137,11 +165,19 @@ Deno.serve(async (req: Request) => {
     const cleanedText = responseText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 
     let parsed: {
+      intent: string;
       destinatarios: string[];
       monto_por_persona: number;
       moneda: string;
       frecuencia: string | null;
       dia_de_pago: string | null;
+      cliente?: string;
+      monto_factura?: number;
+      moneda_factura?: string;
+      descripcion_factura?: string;
+      monto_offramp?: number;
+      moneda_origen?: string;
+      destino_offramp?: string;
     };
 
     try {
@@ -177,13 +213,23 @@ Deno.serve(async (req: Request) => {
     }
 
     const result = {
+      intent: parsed.intent || "pago",
       destinatarios: parsed.destinatarios || [],
       destinatariosConWallet,
-      monto_por_persona: parsed.monto_por_persona,
-      moneda: parsed.moneda || "USDC",
+      monto_por_persona: parsed.monto_por_persona || null,
+      moneda: parsed.moneda || "SOL",
       frecuencia: parsed.frecuencia || null,
       dia_de_pago: parsed.dia_de_pago || null,
       textoOriginal: text,
+      // Factura
+      cliente: parsed.cliente || null,
+      monto_factura: parsed.monto_factura || null,
+      moneda_factura: parsed.moneda_factura || null,
+      descripcion_factura: parsed.descripcion_factura || null,
+      // Off-ramp
+      monto_offramp: parsed.monto_offramp || null,
+      moneda_origen: parsed.moneda_origen || null,
+      destino_offramp: parsed.destino_offramp || null,
     };
 
     return new Response(JSON.stringify(result), {

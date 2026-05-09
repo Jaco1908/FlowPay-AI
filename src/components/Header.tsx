@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, Clock, Home, Wallet, Repeat2, Users, LogOut } from 'lucide-react';
+import { Zap, Clock, Home, Wallet, Repeat2, Users, LogOut, FileText, LayoutDashboard } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useWalletBalance } from '@/hooks/use-wallet-balance';
 import { useAuth } from '@/contexts/AuthContext';
@@ -40,6 +40,17 @@ const Header = () => {
           <span className="hidden sm:inline">Inicio</span>
         </button>
         <button
+          onClick={() => navigate('/dashboard')}
+          className={`flex items-center gap-1.5 px-2.5 md:px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            location.pathname === '/dashboard'
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+          }`}
+        >
+          <LayoutDashboard className="w-4 h-4" />
+          <span className="hidden sm:inline">Dashboard</span>
+        </button>
+        <button
           onClick={() => navigate('/rules')}
           className={`flex items-center gap-1.5 px-2.5 md:px-4 py-2 rounded-lg text-sm font-medium transition-all ${
             location.pathname === '/rules'
@@ -71,6 +82,17 @@ const Header = () => {
         >
           <Clock className="w-4 h-4" />
           <span className="hidden sm:inline">Historial</span>
+        </button>
+        <button
+          onClick={() => navigate('/invoices')}
+          className={`flex items-center gap-1.5 px-2.5 md:px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            location.pathname === '/invoices'
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span className="hidden sm:inline">Facturas</span>
         </button>
       </nav>
 

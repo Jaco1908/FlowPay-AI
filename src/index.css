@@ -50,12 +50,14 @@
     --sidebar-ring: 217 91% 60%;
 
     /* Custom design tokens */
-    --gradient-blue: linear-gradient(135deg, #3B82F6 0%, #6366F1 100%);
-    --gradient-green: linear-gradient(135deg, #22C55E 0%, #10B981 100%);
+    --gradient-blue: linear-gradient(135deg, #1D4ED8 0%, #2563EB 40%, #0EA5E9 100%);
+    --gradient-emerald: linear-gradient(135deg, #065F46 0%, #059669 40%, #10B981 100%);
+    --gradient-green: linear-gradient(135deg, #059669 0%, #10B981 100%);
     --gradient-purple: linear-gradient(135deg, #7C3AED 0%, #A855F7 100%);
     --gradient-surface: linear-gradient(180deg, hsl(222 47% 8%) 0%, hsl(224 71% 3%) 100%);
-    --gradient-glow: radial-gradient(ellipse at 50% 0%, hsl(217 91% 60% / 0.08) 0%, transparent 60%);
-    --shadow-glow: 0 0 40px hsl(217 91% 60% / 0.15);
+    --gradient-glow: radial-gradient(ellipse at 50% 0%, hsl(199 89% 48% / 0.12) 0%, hsl(217 91% 60% / 0.06) 40%, transparent 70%);
+    --shadow-glow: 0 0 50px hsl(199 89% 48% / 0.25), 0 0 20px hsl(217 91% 60% / 0.15);
+    --shadow-emerald-glow: 0 0 40px hsl(160 84% 39% / 0.3);
     --shadow-green-glow: 0 0 30px hsl(142 71% 45% / 0.2);
     --shadow-card: 0 4px 24px hsl(0 0% 0% / 0.4);
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -197,6 +199,25 @@
   }
 
   .fp-btn-green:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .fp-btn-emerald {
+    background: var(--gradient-emerald);
+    color: #fff;
+    border-radius: var(--radius);
+    font-weight: 600;
+    transition: var(--transition-smooth);
+    box-shadow: 0 2px 16px hsl(160 84% 39% / 0.3);
+  }
+
+  .fp-btn-emerald:hover:not(:disabled) {
+    box-shadow: var(--shadow-emerald-glow);
+    transform: translateY(-1px);
+  }
+
+  .fp-btn-emerald:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }

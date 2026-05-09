@@ -1,8 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Pause, Users, Coins, Calendar, Clock, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Play, Pause, Users, Coins, Calendar, Clock, Plus, RefreshCw, Trash2, List } from 'lucide-react';
 import Header from '@/components/Header';
 import { supabase } from '@/lib/supabase';
+
+const WEEK_DAYS = [
+  { key: 'lunes',      label: 'Lun', full: 'Lunes' },
+  { key: 'martes',     label: 'Mar', full: 'Martes' },
+  { key: 'miércoles',  label: 'Mié', full: 'Miércoles' },
+  { key: 'jueves',     label: 'Jue', full: 'Jueves' },
+  { key: 'viernes',    label: 'Vie', full: 'Viernes' },
+  { key: 'sábado',     label: 'Sáb', full: 'Sábado' },
+  { key: 'domingo',    label: 'Dom', full: 'Domingo' },
+];
+
+const DAY_NORMALIZE: Record<string, string> = {
+  monday: 'lunes', tuesday: 'martes', wednesday: 'miércoles',
+  thursday: 'jueves', friday: 'viernes', saturday: 'sábado', sunday: 'domingo',
+};
+
+const TODAY_KEY = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][new Date().getDay()];
 
 interface Rule {
   id: string;
@@ -41,6 +58,7 @@ const Rules = () => {
   const [toggling, setToggling] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Rule | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [view, setView] = useState<'list' | 'calendar'>('calendar');
 
   async function fetchRules() {
     setLoading(true);
@@ -154,6 +172,27 @@ const Rules = () => {
               >
                 <RefreshCw className="w-4 h-4" />
               </button>
+              {/* Toggle vista */}
+              <div className="flex rounded-lg border border-border overflow-hidden">
+                <button
+                  onClick={() => setView('calendar')}
+                  className={`px-3 py-2 text-xs flex items-center gap-1.5 transition-colors ${
+                    view === 'calendar' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                  }`}
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Calendario</span>
+                </button>
+                <button
+                  onClick={() => setView('list')}
+                  className={`px-3 py-2 text-xs flex items-center gap-1.5 transition-colors ${
+                    view === 'list' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                  }`}
+                >
+                  <List className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Lista</span>
+                </button>
+              </div>
               <button
                 onClick={() => navigate('/')}
                 className="fp-btn-primary flex items-center gap-2 py-2 px-4 text-sm"
@@ -164,13 +203,112 @@ const Rules = () => {
             </div>
           </div>
 
-          {/* Content */}
+          {/* Calendar view */}
+          {!loading && view === 'calendar' && (
+            <div className="mb-6">
+              {rules.length === 0 ? (
+                <div className="fp-card p-12 text-center">
+                  <Calendar className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+                  <p className="text-foreground font-semibold mb-2">Sin reglas todavía</p>
+                  <p className="text-muted-foreground text-sm mb-6">Crea tu primera regla de pago automático</p>
+                  <button onClick={() => navigate('/')} className="fp-btn-primary py-2.5 px-6 text-sm">+ Crear primera regla</button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-7 gap-2">
+                  {WEEK_DAYS.map(day => {
+                    const normalized = DAY_NORMALIZE[day.key] || day.key;
+                    const dayRules = rules.filter(r => {
+                      const d = (r.dia_de_pago || '').toLowerCase();
+                      return d === day.key || d === normalized;
+                    });
+                    const isToday = day.key === TODAY_KEY;
+
+                    return (
+                      <div key={day.key} className={`rounded-xl border flex flex-col min-h-[160px] ${
+                        isToday ? 'border-primary bg-primary/5' : 'border-border bg-card/40'
+                      }`}>
+                        {/* Day header */}
+                        <div className={`px-2 py-2 text-center border-b ${
+                          isToday ? 'border-primary/30' : 'border-border/50'
+                        }`}>
+                          <p className={`text-xs font-bold uppercase tracking-wider ${
+                            isToday ? 'text-primary' : 'text-muted-foreground'
+                          }`}>{day.label}</p>
+                          {isToday && (
+                            <span className="text-[10px] text-primary font-medium">Hoy</span>
+                          )}
+                        </div>
+
+                        {/* Rules for this day */}
+                        <div className="flex-1 p-1.5 space-y-1.5">
+                          {dayRules.length === 0 ? (
+                            <p className="text-[10px] text-muted-foreground/40 text-center mt-4">—</p>
+                          ) : (
+                            dayRules.map(rule => (
+                              <div key={rule.id} className={`rounded-lg p-1.5 ${
+                                rule.status === 'active'
+                                  ? 'bg-green-500/10 border border-green-500/20'
+                                  : 'bg-muted/30 border border-border/30 opacity-50'
+                              }`}>
+                                <p className={`text-[10px] font-bold mb-0.5 ${
+                                  rule.status === 'active' ? 'text-green-400' : 'text-muted-foreground'
+                                }`}>
+                                  {rule.monto_por_persona} {rule.moneda || 'SOL'}
+                                </p>
+                                {rule.destinatarios?.slice(0, 3).map((d, i) => (
+                                  <p key={i} className="text-[10px] text-muted-foreground truncate capitalize">
+                                    {d.nombre}
+                                  </p>
+                                ))}
+                                {(rule.destinatarios?.length || 0) > 3 && (
+                                  <p className="text-[10px] text-muted-foreground/60">
+                                    +{rule.destinatarios.length - 3} más
+                                  </p>
+                                )}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Reglas sin día asignado */}
+              {rules.filter(r => {
+                const d = (r.dia_de_pago || '').toLowerCase();
+                return !WEEK_DAYS.some(w => w.key === d || DAY_NORMALIZE[w.key] === d);
+              }).length > 0 && (
+                <div className="mt-4 fp-card p-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                    Sin día fijo (única vez / mensual)
+                  </p>
+                  <div className="space-y-2">
+                    {rules.filter(r => {
+                      const d = (r.dia_de_pago || '').toLowerCase();
+                      return !WEEK_DAYS.some(w => w.key === d || DAY_NORMALIZE[w.key] === d);
+                    }).map(rule => (
+                      <div key={rule.id} className="flex items-center justify-between">
+                        <p className="text-sm text-muted-foreground truncate flex-1">"{rule.raw_text}"</p>
+                        <span className="text-xs text-primary ml-3 shrink-0">
+                          {rule.monto_por_persona} {rule.moneda || 'SOL'} · {FREQ_LABELS[rule.frecuencia || ''] || rule.frecuencia}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* List Content */}
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <div className="fp-spinner mr-3" />
               <span className="text-muted-foreground">Cargando reglas...</span>
             </div>
-          ) : rules.length === 0 ? (
+          ) : view === 'list' && rules.length === 0 ? (
             <div className="fp-card p-12 text-center">
               <div className="w-14 h-14 rounded-full bg-muted/40 flex items-center justify-center mx-auto mb-4">
                 <Clock className="w-7 h-7 text-muted-foreground" />
@@ -186,7 +324,7 @@ const Rules = () => {
                 + Crear primera regla
               </button>
             </div>
-          ) : (
+          ) : view === 'list' ? (
             <div className="space-y-4">
               {rules.map((rule) => (
                 <div
@@ -296,7 +434,7 @@ const Rules = () => {
                 </div>
               ))}
             </div>
-          )}
+          ) : null}
         </div>
       </main>
     </div>
