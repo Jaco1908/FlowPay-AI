@@ -15,6 +15,7 @@ interface AuthContextType {
   user: Employee | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithSIWS: (userId: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -50,6 +51,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     verifySession();
   }, []);
 
+  async function loginWithSIWS(userId: string) {
+    const { data } = await supabase
+      .from('employees')
+      .select('id, nombre, email, wallet, clabe, role')
+      .eq('id', userId)
+      .single();
+
+    if (!data) throw new Error('Wallet no registrada en FlowPay.');
+
+    const employee = data as Employee;
+    setUser(employee);
+    localStorage.setItem('flowpay_user', JSON.stringify(employee));
+  }
+
   async function login(email: string, password: string) {
     const hashed = await hashPassword(password, email.toLowerCase().trim());
 
@@ -73,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithSIWS, logout }}>
       {children}
     </AuthContext.Provider>
   );

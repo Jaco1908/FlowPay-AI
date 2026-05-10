@@ -35,15 +35,11 @@ interface MatchResult {
   matches: string[];
 }
 
-<<<<<<< Updated upstream
-function findEmployee(nombre: string, employees: Employee[]): MatchResult {
-=======
 function textContainsNumber(text: string): boolean {
   return /\d+(\.\d+)?/.test(text);
 }
 
-function findWallet(nombre: string, employees: Employee[]): MatchResult {
->>>>>>> Stashed changes
+function findEmployee(nombre: string, employees: Employee[]): MatchResult {
   const search = nombre.toLowerCase().trim();
   const found: Employee[] = [];
 

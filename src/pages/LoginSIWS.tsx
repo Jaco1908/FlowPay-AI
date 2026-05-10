@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginSIWS() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loginWithSIWS } = useAuth();
   const { signIn, loading, error, connected } = useSIWS();
 
   if (user) {
@@ -18,6 +18,7 @@ export default function LoginSIWS() {
   async function handleSignIn() {
     const session = await signIn();
     if (session) {
+      await loginWithSIWS(session.userId);
       navigate(session.role === 'admin' ? '/' : '/employee', { replace: true });
     }
   }
