@@ -23,16 +23,19 @@ export interface ParsedRule {
   mensaje_ayuda?: string;
 }
 
+export interface ExecutionItem {
+  nombre: string;
+  wallet: string;
+  monto: number;
+  moneda: string;
+  tx_hash: string;
+  explorer_url: string;
+  on_chain_record: string | null;
+  status: 'success' | 'error';
+  error?: string;
+}
+
 export interface ExecuteResult {
-  executions: {
-    nombre: string;
-    wallet: string;
-    monto: number;
-    moneda: string;
-    tx_hash: string;
-    explorer_url: string;
-    status: 'success' | 'error';
-    error?: string;
-  }[];
+  executions: ExecutionItem[];
   rule_id: string;
 }

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, ExternalLink, Copy, Check } from 'lucide-react';
+import { CheckCircle2, ExternalLink, Copy, Check, ShieldCheck, ArrowUpRight } from 'lucide-react';
 import Header from '@/components/Header';
 import type { ExecuteResult, ExecutionItem } from '@/types';
 
@@ -88,16 +88,40 @@ const TxCard = ({ item, index }: { item: ExecutionItem; index: number }) => {
             </button>
           </div>
 
-          <a
-            href={item.explorer_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-accent-foreground transition-all duration-200 hover:opacity-90"
-            style={{ background: 'var(--gradient-purple)' }}
-          >
-            Ver en Solana Explorer
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
+          <div className="flex flex-col gap-2">
+            {/* Transferencia SOL */}
+            <a
+              href={item.explorer_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-accent-foreground transition-all duration-200 hover:opacity-90"
+              style={{ background: 'var(--gradient-purple)' }}
+            >
+              <ArrowUpRight className="w-3.5 h-3.5" />
+              Ver transferencia SOL
+              <ExternalLink className="w-3.5 h-3.5 ml-auto" />
+            </a>
+
+            {/* Registro on-chain en contrato FlowPay */}
+            {item.on_chain_record ? (
+              <a
+                href={item.on_chain_record}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-all duration-200 hover:bg-muted/50"
+                style={{ borderColor: 'hsl(142 71% 45% / 0.4)', color: 'hsl(142 71% 45%)' }}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Registro on-chain · Contrato FlowPay
+                <ExternalLink className="w-3.5 h-3.5 ml-auto opacity-60" />
+              </a>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm border border-dashed border-border text-muted-foreground/50">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Registro on-chain pendiente
+              </div>
+            )}
+          </div>
         </>
       ) : (
         <p className="text-sm text-destructive">
@@ -186,9 +210,21 @@ const Success = () => {
           </div>
 
           {/* Footer */}
-          <p className="text-center text-xs text-muted-foreground/50">
-            Red: Solana Devnet &bull; Powered by Groq AI
-          </p>
+          <div className="text-center space-y-1">
+            <p className="text-xs text-muted-foreground/50">
+              Red: Solana Devnet &bull; Powered by Groq AI
+            </p>
+            <a
+              href="https://explorer.solana.com/address/Dv3iyDKKqxxno1DvuJGHfp6MDHhQsVVejfztcmoqUnds?cluster=devnet"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors"
+            >
+              <ShieldCheck className="w-3 h-3" />
+              Contrato FlowPay en Devnet
+              <ExternalLink className="w-2.5 h-2.5" />
+            </a>
+          </div>
         </div>
       </main>
     </div>

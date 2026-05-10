@@ -8,6 +8,7 @@ import {
   Transaction,
 } from "npm:@solana/web3.js@1.87.6";
 import bs58 from "npm:bs58@5.0.0";
+import { registerPaymentOnChain } from "../_shared/flowpay-anchor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -106,6 +107,20 @@ Deno.serve(async (req: Request) => {
         const signature = await CONNECTION.sendTransaction(transaction, [empresaKeypair]);
         await CONNECTION.confirmTransaction(signature, "confirmed");
 
+        // Registro inmutable on-chain en el contrato FlowPay
+        let onChainSig: string | null = null;
+        try {
+          onChainSig = await registerPaymentOnChain(
+            CONNECTION,
+            empresaKeypair,
+            new PublicKey(dest.wallet),
+            BigInt(lamports),
+            String(rule.id)
+          );
+        } catch (regErr) {
+          console.error("register_payment on-chain falló:", regErr);
+        }
+
         await supabase.from("executions").insert({
           rule_id: rule.id,
           destinatario_nombre: dest.nombre,
@@ -119,6 +134,9 @@ Deno.serve(async (req: Request) => {
           nombre: dest.nombre,
           tx_hash: signature,
           explorer_url: `https://explorer.solana.com/tx/${signature}?cluster=devnet`,
+          on_chain_record: onChainSig
+            ? `https://explorer.solana.com/tx/${onChainSig}?cluster=devnet`
+            : null,
           status: "success",
         });
       } catch (err) {
