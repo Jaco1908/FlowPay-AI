@@ -1,1 +1,17 @@
 node_modules
+dist
+.env
+.env.local
+.env*.local
+
+# Rust / Anchor (Solana programs)
+target/
+Cargo.lock
+Cargo.toml
+Anchor.toml
+programs/
+.anchor/
+
+# Misc
+.claude/
+or
