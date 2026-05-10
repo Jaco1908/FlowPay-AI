@@ -10,7 +10,7 @@ import { clusterApiUrl } from '@solana/web3.js';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
-import Login from './pages/Login';
+import LoginSIWS from './pages/LoginSIWS';
 import Index from './pages/Index';
 import Confirm from './pages/Confirm';
 import Success from './pages/Success';
@@ -38,7 +38,7 @@ const App = () => {
         <WalletProvider wallets={wallets} autoConnect>
           <WalletModalProvider>
             <Routes>
-              <Route path="/login" element={<Login />} />
+              <Route path="/login" element={<LoginSIWS />} />
 
               {/* Rutas del admin */}
               <Route path="/" element={<ProtectedRoute role="admin"><Index /></ProtectedRoute>} />
