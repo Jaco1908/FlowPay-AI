@@ -8,8 +8,9 @@ const corsHeaders = {
 };
 
 interface Employee {
+  id: string;
   nombre: string;
-  wallet: string;
+  wallet: string | null;
 }
 
 async function getEmployeesFromDB(): Promise<Employee[]> {
@@ -17,22 +18,24 @@ async function getEmployeesFromDB(): Promise<Employee[]> {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
+  // Get ALL employees (with and without wallet) to distinguish registered vs unknown
   const { data } = await supabase
     .from("employees")
-    .select("nombre, wallet")
-    .eq("role", "employee")
-    .not("wallet", "is", null);
+    .select("id, nombre, wallet")
+    .eq("role", "employee");
 
   return (data || []) as Employee[];
 }
 
 interface MatchResult {
   wallet: string | null;
+  exists: boolean;
+  employeeId: string | null;
   ambiguous: boolean;
   matches: string[];
 }
 
-function findWallet(nombre: string, employees: Employee[]): MatchResult {
+function findEmployee(nombre: string, employees: Employee[]): MatchResult {
   const search = nombre.toLowerCase().trim();
   const found: Employee[] = [];
 
@@ -50,12 +53,14 @@ function findWallet(nombre: string, employees: Employee[]): MatchResult {
     }
   }
 
-  if (found.length === 0) return { wallet: null, ambiguous: false, matches: [] };
-  if (found.length === 1) return { wallet: found[0].wallet, ambiguous: false, matches: [] };
+  if (found.length === 0) return { wallet: null, exists: false, employeeId: null, ambiguous: false, matches: [] };
+  if (found.length === 1) return { wallet: found[0].wallet, exists: true, employeeId: found[0].id, ambiguous: false, matches: [] };
 
   // Más de uno — ambiguo
   return {
     wallet: null,
+    exists: true,
+    employeeId: null,
     ambiguous: true,
     matches: found.map(e => e.nombre),
   };
@@ -103,7 +108,15 @@ REGLAS:
 - Si el usuario pregunta "qué puedes hacer", "ayuda", "help", "cómo funciona", "hola", "qué eres", o escribe algo que no es una instrucción financiera concreta → intent="ayuda"
 - Si es una instrucción de pago concreta con destinatarios y monto → intent="pago"
 - Para intent="ayuda", el mensaje_ayuda debe ser en español, máximo 3 líneas, mencionando las 3 funciones: pagar nómina en SOL, generar facturas, convertir cripto a fiat.
-- Responde SOLO el JSON, sin texto adicional, sin markdown.`;
+- Responde SOLO el JSON, sin texto adicional, sin markdown.
+
+CRÍTICO — NUNCA inventes ni asumas datos que el usuario NO escribió:
+- Si el usuario NO menciona un monto numérico explícito → devuelve monto_por_persona: null
+- Si el usuario NO menciona frecuencia (semanal/mensual/única) → devuelve frecuencia: null
+- Si el usuario NO menciona un día específico → devuelve dia_de_pago: null
+- Si el usuario NO menciona el monto de la factura → devuelve monto_factura: null
+- Si el usuario NO menciona cuánto convertir → devuelve monto_offramp: null
+- Extrae ÚNICAMENTE lo que el usuario escribió explícitamente. No completes, no sugiereas, no pongas valores por defecto.`;
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -200,11 +213,11 @@ Deno.serve(async (req: Request) => {
 
     const destinatariosConWallet = (parsed.destinatarios || []).map(
       (nombre: string) => {
-        const result = findWallet(nombre, employees);
+        const result = findEmployee(nombre, employees);
         if (result.ambiguous) {
           ambiguousNames.push({ nombre, matches: result.matches });
         }
-        return { nombre, wallet: result.wallet };
+        return { nombre, wallet: result.wallet, exists: result.exists, employeeId: result.employeeId };
       }
     );
 

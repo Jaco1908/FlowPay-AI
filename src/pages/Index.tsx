@@ -53,6 +53,8 @@ interface MissingForm {
   clabe: string;
   password: string;
   created: boolean;
+  exists: boolean;
+  employeeId: string | null;
 }
 
 interface MissingField {
@@ -311,6 +313,8 @@ const Index = () => {
       setMissingForms(missing.map(d => ({
         nombre: cap(d.nombre),
         email: '', wallet: '', clabe: '', password: '', created: false,
+        exists: d.exists ?? false,
+        employeeId: d.employeeId ?? null,
       })));
       setShowMissingModal(true);
     } else {
@@ -331,31 +335,39 @@ const Index = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     for (const form of missingForms) {
-      if (!form.email || !emailRegex.test(form.email)) {
-        setFormErrors(`Correo inválido para ${form.nombre}`);
+      if (!form.wallet || !BASE58.test(form.wallet.trim())) {
+        setFormErrors(`Wallet requerida para ${form.nombre}: debe ser una dirección Solana válida (Base58)`);
         return;
       }
-      if (!form.password || form.password.length < 6) {
-        setFormErrors(`La contraseña de ${form.nombre} debe tener al menos 6 caracteres`);
-        return;
-      }
-      if (form.wallet && !BASE58.test(form.wallet.trim())) {
-        setFormErrors(`Wallet inválida para ${form.nombre}: debe ser una dirección Solana válida (Base58)`);
-        return;
+      if (!form.exists) {
+        if (!form.email || !emailRegex.test(form.email)) {
+          setFormErrors(`Correo inválido para ${form.nombre}`);
+          return;
+        }
+        if (!form.password || form.password.length < 6) {
+          setFormErrors(`La contraseña de ${form.nombre} debe tener al menos 6 caracteres`);
+          return;
+        }
       }
     }
 
     setCreatingUsers(true);
     for (const form of missingForms) {
-      const hashed = await hashPassword(form.password, form.email.toLowerCase().trim());
-      await supabase.from('employees').insert({
-        nombre: form.nombre.trim(),
-        email: form.email.toLowerCase().trim(),
-        wallet: form.wallet.trim() || null,
-        clabe: form.clabe.trim() || null,
-        password: hashed,
-        role: 'employee',
-      });
+      if (form.exists && form.employeeId) {
+        await supabase.from('employees')
+          .update({ wallet: form.wallet.trim() })
+          .eq('id', form.employeeId);
+      } else {
+        const hashed = await hashPassword(form.password, form.email.toLowerCase().trim());
+        await supabase.from('employees').insert({
+          nombre: form.nombre.trim(),
+          email: form.email.toLowerCase().trim(),
+          wallet: form.wallet.trim() || null,
+          clabe: form.clabe.trim() || null,
+          password: hashed,
+          role: 'employee',
+        });
+      }
     }
 
     setShowMissingModal(false);
@@ -375,6 +387,9 @@ const Index = () => {
 
   const allWalletsFound = aiResponse?.intent === 'pago' &&
     (aiResponse.destinatariosConWallet || []).every(d => d.wallet);
+
+  const someExistNoWallet = aiResponse?.intent === 'pago' && !allWalletsFound &&
+    (aiResponse.destinatariosConWallet || []).some(d => d.exists && !d.wallet);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -544,11 +559,15 @@ const Index = () => {
                   <UserPlus className="w-5 h-5 text-yellow-400" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-foreground">Colaboradores no encontrados</h2>
+                  <h2 className="text-lg font-bold text-foreground">
+                    {missingForms.every(f => f.exists) ? 'Wallets faltantes' : 'Colaboradores sin wallet'}
+                  </h2>
                   <p className="text-xs text-muted-foreground">
-                    {missingForms.length === 1
-                      ? 'Esta persona no está registrada'
-                      : 'Estas personas no están registradas'}
+                    {missingForms.every(f => f.exists)
+                      ? 'Estos colaboradores están registrados pero no tienen wallet'
+                      : missingForms.length === 1
+                      ? 'Esta persona no está registrada en tu sistema'
+                      : 'Algunas personas no están registradas en tu sistema'}
                   </p>
                 </div>
               </div>
@@ -559,7 +578,9 @@ const Index = () => {
             </div>
 
             <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
-              ¿Quieres registrarlos ahora y continuar con el pago?
+              {missingForms.every(f => f.exists)
+                ? 'Agrega la wallet de cada colaborador para poder enviar el pago.'
+                : '¿Quieres registrarlos ahora y continuar con el pago?'}
             </p>
 
             <div className="space-y-5">
@@ -571,26 +592,33 @@ const Index = () => {
                       {form.nombre.charAt(0)}
                     </div>
                     <p className="font-semibold text-foreground">{form.nombre}</p>
+                    {form.exists && !form.created && (
+                      <span className="ml-auto text-xs text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded-full">
+                        Ya registrado
+                      </span>
+                    )}
                     {form.created && <CheckCircle2 className="w-4 h-4 text-green-400 ml-auto" />}
                   </div>
 
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                    <input
-                      type="email"
-                      value={form.email}
-                      onChange={e => updateForm(i, 'email', e.target.value)}
-                      placeholder="correo@empresa.com"
-                      className="fp-input w-full pl-9 pr-3 py-2.5 text-sm"
-                    />
-                  </div>
+                  {!form.exists && (
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                      <input
+                        type="email"
+                        value={form.email}
+                        onChange={e => updateForm(i, 'email', e.target.value)}
+                        placeholder="correo@empresa.com"
+                        className="fp-input w-full pl-9 pr-3 py-2.5 text-sm"
+                      />
+                    </div>
+                  )}
 
                   <div className="relative">
                     <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                     <input
                       value={form.wallet}
                       onChange={e => updateForm(i, 'wallet', e.target.value)}
-                      placeholder="Wallet de Solana (recomendado para recibir pagos)"
+                      placeholder={form.exists ? 'Wallet de Solana (requerida para recibir el pago)' : 'Wallet de Solana (recomendado para recibir pagos)'}
                       className={`fp-input w-full pl-9 pr-3 py-2.5 text-sm font-mono ${
                         form.wallet && !BASE58.test(form.wallet.trim()) ? 'border-destructive/60' : ''
                       }`}
@@ -609,27 +637,31 @@ const Index = () => {
                     </p>
                   )}
 
-                  <div className="relative">
-                    <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                    <input
-                      value={form.clabe}
-                      onChange={e => updateForm(i, 'clabe', e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      placeholder="Número de cuenta (opcional, 10 dígitos)"
-                      inputMode="numeric"
-                      className="fp-input w-full pl-9 pr-3 py-2.5 text-sm font-mono"
-                    />
-                  </div>
+                  {!form.exists && (
+                    <>
+                      <div className="relative">
+                        <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                        <input
+                          value={form.clabe}
+                          onChange={e => updateForm(i, 'clabe', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                          placeholder="Número de cuenta (opcional, 10 dígitos)"
+                          inputMode="numeric"
+                          className="fp-input w-full pl-9 pr-3 py-2.5 text-sm font-mono"
+                        />
+                      </div>
 
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                    <input
-                      type="password"
-                      value={form.password}
-                      onChange={e => updateForm(i, 'password', e.target.value)}
-                      placeholder="Contraseña de acceso (mín. 6 caracteres)"
-                      className="fp-input w-full pl-9 pr-3 py-2.5 text-sm"
-                    />
-                  </div>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                        <input
+                          type="password"
+                          value={form.password}
+                          onChange={e => updateForm(i, 'password', e.target.value)}
+                          placeholder="Contraseña de acceso (mín. 6 caracteres)"
+                          className="fp-input w-full pl-9 pr-3 py-2.5 text-sm"
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
@@ -655,9 +687,12 @@ const Index = () => {
               >
                 {creatingUsers ? (
                   <div className="flex items-center justify-center gap-2">
-                    <div className="fp-spinner" /><span>Creando y reintentando...</span>
+                    <div className="fp-spinner" /><span>Guardando y reintentando...</span>
                   </div>
-                ) : `Crear ${missingForms.length === 1 ? 'colaborador' : 'colaboradores'} y continuar →`}
+                ) : missingForms.every(f => f.exists)
+                  ? 'Guardar wallets y continuar →'
+                  : `Crear ${missingForms.filter(f => !f.exists).length === 1 ? 'colaborador' : 'colaboradores'} y continuar →`
+                }
               </button>
             </div>
           </div>
@@ -813,10 +848,15 @@ const Index = () => {
                                     {d.wallet.slice(0, 6)}…{d.wallet.slice(-4)}
                                   </span>
                                 </span>
+                              ) : d.exists ? (
+                                <span className="flex items-center gap-1.5 text-blue-400 text-xs">
+                                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                  Registrado — falta agregar wallet
+                                </span>
                               ) : (
                                 <span className="flex items-center gap-1.5 text-yellow-400 text-xs">
                                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                                  Sin wallet — se registrará al continuar
+                                  No registrado — se creará al continuar
                                 </span>
                               )}
                             </div>
@@ -826,12 +866,16 @@ const Index = () => {
                         <div className={`px-3 py-2 text-xs flex items-center gap-1.5 ${
                           allWalletsFound
                             ? 'bg-green-500/5 text-green-400'
+                            : someExistNoWallet
+                            ? 'bg-blue-500/5 text-blue-400'
                             : 'bg-yellow-500/5 text-yellow-400'
                         }`}>
                           {allWalletsFound ? (
                             <><ShieldCheck className="w-3 h-3" /> Todos los destinatarios tienen wallet verificada</>
+                          ) : someExistNoWallet ? (
+                            <><AlertCircle className="w-3 h-3" /> Colaboradores registrados sin wallet — debes agregarla antes de ejecutar</>
                           ) : (
-                            <><AlertCircle className="w-3 h-3" /> Algunos destinatarios no tienen wallet — se crearán antes de ejecutar</>
+                            <><AlertCircle className="w-3 h-3" /> Algunos destinatarios no están registrados — se crearán antes de ejecutar</>
                           )}
                         </div>
                       </div>

@@ -1,6 +1,8 @@
 export interface DestinatarioConWallet {
   nombre: string;
   wallet: string | null;
+  exists: boolean;
+  employeeId: string | null;
 }
 
 export interface ParsedRule {
