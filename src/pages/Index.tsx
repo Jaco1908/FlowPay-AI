@@ -193,67 +193,17 @@ const Index = () => {
   const [creatingUsers, setCreatingUsers] = useState(false);
   const [formErrors, setFormErrors] = useState<string | null>(null);
 
-<<<<<<< Updated upstream
-  // Modal: datos incompletos de la instrucción
+  // Modal: datos incompletos en la instrucción
   const [showMissingDataModal, setShowMissingDataModal] = useState(false);
   const [missingDataFields, setMissingDataFields] = useState<MissingField[]>([]);
   const [pendingParsed, setPendingParsed] = useState<ParsedRule | null>(null);
   const [missingDataError, setMissingDataError] = useState<string | null>(null);
-=======
+
+  // Modal: monto faltante en factura
   const [showMontoModal, setShowMontoModal] = useState(false);
   const [montoInput, setMontoInput] = useState('');
   const [monedaInput, setMonedaInput] = useState('USD');
   const [montoError, setMontoError] = useState(false);
-
-  const HELP_PATTERNS = /^(hola|hello|hi|hey|buenos\s+días?|buenas|buen\s+día|qué\s+puedes|que\s+puedes|what\s+can|ayuda|help|cómo\s+funciona|como\s+funciona|qué\s+eres|que\s+eres|qué\s+haces|que\s+haces|para\s+qué|para\s+que|info|información)[\s.,!?]*/i;
-
-  function buildAITitle(parsed: ParsedRule): string {
-    if (parsed.intent === 'pago') return parsed.frecuencia ? 'Detecté un pago recurrente:' : 'Detecté un pago puntual:';
-    if (parsed.intent === 'factura') return 'Voy a crear una factura:';
-    if (parsed.intent === 'offramp') return 'Voy a convertir cripto a fiat:';
-    return 'Entendido:';
-  }
-
-  function buildAILines(parsed: ParsedRule): { label: string; value: string }[] {
-    const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-    if (parsed.intent === 'pago') {
-      const lines: { label: string; value: string }[] = [];
-      if (parsed.destinatarios?.length)
-        lines.push({ label: 'Destinatarios', value: parsed.destinatarios.map(cap).join(', ') });
-      if (parsed.monto_por_persona)
-        lines.push({ label: 'Monto por persona', value: `${parsed.monto_por_persona} ${parsed.moneda || 'SOL'}` });
-      if (parsed.frecuencia)
-        lines.push({ label: 'Frecuencia', value: cap(parsed.frecuencia) });
-      if (parsed.dia_de_pago)
-        lines.push({ label: 'Día de pago', value: cap(parsed.dia_de_pago) });
-      if (parsed.monto_por_persona && parsed.destinatarios?.length) {
-        const total = parsed.monto_por_persona * parsed.destinatarios.length;
-        const fmt = Number.isInteger(total) ? total.toString() : total.toFixed(4).replace(/\.?0+$/, '');
-        lines.push({ label: 'Total', value: `${fmt} ${parsed.moneda || 'SOL'}` });
-      }
-      return lines;
-    }
-    if (parsed.intent === 'factura') {
-      const lines: { label: string; value: string }[] = [];
-      if (parsed.cliente) lines.push({ label: 'Cliente', value: parsed.cliente });
-      if (parsed.monto_factura) {
-        lines.push({ label: 'Monto', value: `${parsed.monto_factura} ${parsed.moneda_factura || 'USD'}` });
-      } else {
-        lines.push({ label: 'Monto', value: 'No especificado' });
-      }
-      if (parsed.descripcion_factura) lines.push({ label: 'Descripción', value: parsed.descripcion_factura });
-      return lines;
-    }
-    if (parsed.intent === 'offramp') {
-      const lines: { label: string; value: string }[] = [];
-      if (parsed.monto_por_persona) lines.push({ label: 'Monto', value: `${parsed.monto_por_persona} ${parsed.moneda || 'SOL'}` });
-      return lines;
-    }
-    return [];
-  }
-
-  const HELP_DEFAULT = 'Puedo hacer 3 cosas por ti: 1) Pagar nómina — transfiero SOL a tu equipo con una frase. 2) Generar facturas — creo y rastreo cobros a tus clientes. 3) Convertir cripto a fiat — convierto tu SOL a dinero en tu cuenta bancaria. ¿Por dónde quieres empezar?';
->>>>>>> Stashed changes
 
   const handleAnalyze = async () => {
     if (!text.trim() || loading) return;
@@ -293,15 +243,12 @@ const Index = () => {
     }
   };
 
-<<<<<<< Updated upstream
   async function handleMissingDataConfirm() {
-    // Validar que todos los campos estén completos
     const empty = missingDataFields.find(f => !f.value.trim());
     if (empty) {
       setMissingDataError(`"${empty.label}" es obligatorio para continuar`);
       return;
     }
-    // Validar números > 0
     for (const f of missingDataFields) {
       if (f.type === 'number') {
         const val = parseFloat(f.value);
@@ -313,7 +260,6 @@ const Index = () => {
     }
     setMissingDataError(null);
 
-    // Si cambiaron los destinatarios, necesitamos re-parsear para buscar wallets
     const needsReParse = missingDataFields.some(f => f.field === 'destinatarios');
 
     if (needsReParse) {
@@ -343,7 +289,6 @@ const Index = () => {
         setPendingParsed(null);
       }
     } else {
-      // Mezclar los campos completados con la respuesta original
       const merged: ParsedRule = { ...pendingParsed! };
       for (const f of missingDataFields) {
         if (f.field === 'monto_por_persona') merged.monto_por_persona = parseFloat(f.value);
@@ -357,16 +302,15 @@ const Index = () => {
       setShowMissingDataModal(false);
       setPendingParsed(null);
     }
-=======
+  }
+
   function handleMontoConfirm() {
     const val = parseFloat(montoInput);
     if (!val || val <= 0) { setMontoError(true); return; }
-
     const updated = { ...aiResponse!, monto_factura: val, moneda_factura: monedaInput };
     sessionStorage.setItem('parsedRule', JSON.stringify(updated));
     setShowMontoModal(false);
     navigate('/invoice');
->>>>>>> Stashed changes
   }
 
   function handleConfirm() {
