@@ -22,6 +22,7 @@ import InvoiceConfirm from './pages/InvoiceConfirm';
 import OffRamp from './pages/OffRamp';
 import Invoices from './pages/Invoices';
 import Dashboard from './pages/Dashboard';
+import PayInvoice from './pages/PayInvoice';
 import NotFound from './pages/NotFound';
 
 import '@solana/wallet-adapter-react-ui/styles.css';
@@ -53,6 +54,9 @@ const App = () => {
 
               {/* Ruta del empleado */}
               <Route path="/employee" element={<ProtectedRoute role="employee"><EmployeeDashboard /></ProtectedRoute>} />
+
+              {/* Ruta pública — no requiere auth */}
+              <Route path="/pay/:invoiceId" element={<PayInvoice />} />
 
               <Route path="*" element={<NotFound />} />
             </Routes>

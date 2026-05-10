@@ -35,7 +35,15 @@ interface MatchResult {
   matches: string[];
 }
 
+<<<<<<< Updated upstream
 function findEmployee(nombre: string, employees: Employee[]): MatchResult {
+=======
+function textContainsNumber(text: string): boolean {
+  return /\d+(\.\d+)?/.test(text);
+}
+
+function findWallet(nombre: string, employees: Employee[]): MatchResult {
+>>>>>>> Stashed changes
   const search = nombre.toLowerCase().trim();
   const found: Employee[] = [];
 
@@ -108,15 +116,29 @@ REGLAS:
 - Si el usuario pregunta "qué puedes hacer", "ayuda", "help", "cómo funciona", "hola", "qué eres", o escribe algo que no es una instrucción financiera concreta → intent="ayuda"
 - Si es una instrucción de pago concreta con destinatarios y monto → intent="pago"
 - Para intent="ayuda", el mensaje_ayuda debe ser en español, máximo 3 líneas, mencionando las 3 funciones: pagar nómina en SOL, generar facturas, convertir cripto a fiat.
+- CRÍTICO — NUNCA inventes ni asumas datos que el usuario NO escribió:
+  - Si el usuario NO menciona un monto numérico explícito → devuelve monto_por_persona: null
+  - Si el usuario NO menciona frecuencia → devuelve frecuencia: null
+  - Si el usuario NO menciona un día específico → devuelve dia_de_pago: null
+  - Si el usuario NO menciona el monto de la factura → devuelve monto_factura: null
+  - Si el usuario NO menciona cuánto convertir → devuelve monto_offramp: null
+  - Extrae ÚNICAMENTE lo que el usuario escribió explícitamente. No completes, no sugieras, no pongas valores por defecto.
+- Para intent="factura": el cliente es una empresa o persona EXTERNA, no necesita estar en ninguna base de datos. Pon destinatarios: [] siempre.
 - Responde SOLO el JSON, sin texto adicional, sin markdown.
 
-CRÍTICO — NUNCA inventes ni asumas datos que el usuario NO escribió:
-- Si el usuario NO menciona un monto numérico explícito → devuelve monto_por_persona: null
-- Si el usuario NO menciona frecuencia (semanal/mensual/única) → devuelve frecuencia: null
-- Si el usuario NO menciona un día específico → devuelve dia_de_pago: null
-- Si el usuario NO menciona el monto de la factura → devuelve monto_factura: null
-- Si el usuario NO menciona cuánto convertir → devuelve monto_offramp: null
-- Extrae ÚNICAMENTE lo que el usuario escribió explícitamente. No completes, no sugiereas, no pongas valores por defecto.`;
+EJEMPLOS CRÍTICOS DE MONTO NULL:
+Usuario: "Genera factura a Acme Inc por servicios de desarrollo web"
+→ monto_factura: null  (no mencionó ningún número)
+
+Usuario: "Crea factura para Google por consultoría"
+→ monto_factura: null  (sin monto especificado)
+
+Usuario: "Genera factura de 500 USD a Acme Inc por diseño"
+→ monto_factura: 500   (el usuario SÍ especificó el número 500)
+
+Usuario: "Paga a Juan"
+→ monto_por_persona: null  (no especificó cuánto)`;
+
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -240,13 +262,13 @@ Deno.serve(async (req: Request) => {
       frecuencia: parsed.frecuencia || null,
       dia_de_pago: parsed.dia_de_pago || null,
       textoOriginal: text,
-      // Factura
+      // Factura — null out amounts the LLM invented when the user wrote no number
       cliente: parsed.cliente || null,
-      monto_factura: parsed.monto_factura || null,
+      monto_factura: (parsed.monto_factura && textContainsNumber(text)) ? parsed.monto_factura : null,
       moneda_factura: parsed.moneda_factura || null,
       descripcion_factura: parsed.descripcion_factura || null,
       // Off-ramp
-      monto_offramp: parsed.monto_offramp || null,
+      monto_offramp: (parsed.monto_offramp && textContainsNumber(text)) ? parsed.monto_offramp : null,
       moneda_origen: parsed.moneda_origen || null,
       destino_offramp: parsed.destino_offramp || null,
       // Ayuda

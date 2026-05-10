@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
 import Header from '@/components/Header';
 import { supabase } from '@/lib/supabase';
 import type { ParsedRule } from '@/types';
@@ -18,6 +18,8 @@ export default function InvoiceConfirm() {
   const [descripcion,   setDescripcion]   = useState('');
   const [monedaFactura, setMonedaFactura] = useState('USD');
 
+  const [missingMonto, setMissingMonto] = useState(false);
+
   const [invoiceId] = useState(() => `INV-${Date.now().toString(36).toUpperCase()}`);
   const previewDate  = new Date().toLocaleDateString('es', { day: '2-digit', month: 'long', year: 'numeric' });
 
@@ -27,14 +29,14 @@ export default function InvoiceConfirm() {
     try {
       const parsed = JSON.parse(stored) as ParsedRule;
       setRule(parsed);
-      setCliente(
-        parsed.cliente ||
-        parsed.destinatariosConWallet?.[0]?.nombre ||
-        parsed.destinatarios?.[0] ||
-        ''
-      );
-      const m = parsed.monto_factura ?? parsed.monto_por_persona ?? 0;
-      setMonto(m > 0 ? String(m) : '');
+      setCliente(parsed.cliente || '');
+      const m = parsed.monto_factura ?? null;
+      if (m && m > 0) {
+        setMonto(String(m));
+      } else {
+        setMonto('');
+        setMissingMonto(true);
+      }
       setDescripcion(parsed.descripcion_factura || '');
       setMonedaFactura(parsed.moneda_factura || 'USD');
     } catch { navigate('/'); }
@@ -108,6 +110,15 @@ export default function InvoiceConfirm() {
             {/* ── Form ── */}
             <div className="space-y-6">
 
+              {missingMonto && (
+                <div className="flex items-start gap-3 p-4 rounded-xl border border-yellow-500/30 bg-yellow-500/5">
+                  <AlertCircle className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
+                  <p className="text-sm text-yellow-400">
+                    No detecté el monto en tu instrucción. Ingresa el monto manualmente antes de guardar.
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-2">
                   Cliente <span className="text-destructive">*</span>
@@ -132,9 +143,9 @@ export default function InvoiceConfirm() {
                     min="0"
                     step="any"
                     value={monto}
-                    onChange={e => setMonto(e.target.value)}
+                    onChange={e => { setMonto(e.target.value); setMissingMonto(false); }}
                     placeholder="0.00"
-                    className="fp-input flex-1 px-4 py-3 text-sm"
+                    className={`fp-input flex-1 px-4 py-3 text-sm ${missingMonto ? 'border-yellow-500/60 focus:border-yellow-400' : ''}`}
                   />
                   <select
                     value={monedaFactura}

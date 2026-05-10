@@ -193,11 +193,67 @@ const Index = () => {
   const [creatingUsers, setCreatingUsers] = useState(false);
   const [formErrors, setFormErrors] = useState<string | null>(null);
 
+<<<<<<< Updated upstream
   // Modal: datos incompletos de la instrucción
   const [showMissingDataModal, setShowMissingDataModal] = useState(false);
   const [missingDataFields, setMissingDataFields] = useState<MissingField[]>([]);
   const [pendingParsed, setPendingParsed] = useState<ParsedRule | null>(null);
   const [missingDataError, setMissingDataError] = useState<string | null>(null);
+=======
+  const [showMontoModal, setShowMontoModal] = useState(false);
+  const [montoInput, setMontoInput] = useState('');
+  const [monedaInput, setMonedaInput] = useState('USD');
+  const [montoError, setMontoError] = useState(false);
+
+  const HELP_PATTERNS = /^(hola|hello|hi|hey|buenos\s+días?|buenas|buen\s+día|qué\s+puedes|que\s+puedes|what\s+can|ayuda|help|cómo\s+funciona|como\s+funciona|qué\s+eres|que\s+eres|qué\s+haces|que\s+haces|para\s+qué|para\s+que|info|información)[\s.,!?]*/i;
+
+  function buildAITitle(parsed: ParsedRule): string {
+    if (parsed.intent === 'pago') return parsed.frecuencia ? 'Detecté un pago recurrente:' : 'Detecté un pago puntual:';
+    if (parsed.intent === 'factura') return 'Voy a crear una factura:';
+    if (parsed.intent === 'offramp') return 'Voy a convertir cripto a fiat:';
+    return 'Entendido:';
+  }
+
+  function buildAILines(parsed: ParsedRule): { label: string; value: string }[] {
+    const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+    if (parsed.intent === 'pago') {
+      const lines: { label: string; value: string }[] = [];
+      if (parsed.destinatarios?.length)
+        lines.push({ label: 'Destinatarios', value: parsed.destinatarios.map(cap).join(', ') });
+      if (parsed.monto_por_persona)
+        lines.push({ label: 'Monto por persona', value: `${parsed.monto_por_persona} ${parsed.moneda || 'SOL'}` });
+      if (parsed.frecuencia)
+        lines.push({ label: 'Frecuencia', value: cap(parsed.frecuencia) });
+      if (parsed.dia_de_pago)
+        lines.push({ label: 'Día de pago', value: cap(parsed.dia_de_pago) });
+      if (parsed.monto_por_persona && parsed.destinatarios?.length) {
+        const total = parsed.monto_por_persona * parsed.destinatarios.length;
+        const fmt = Number.isInteger(total) ? total.toString() : total.toFixed(4).replace(/\.?0+$/, '');
+        lines.push({ label: 'Total', value: `${fmt} ${parsed.moneda || 'SOL'}` });
+      }
+      return lines;
+    }
+    if (parsed.intent === 'factura') {
+      const lines: { label: string; value: string }[] = [];
+      if (parsed.cliente) lines.push({ label: 'Cliente', value: parsed.cliente });
+      if (parsed.monto_factura) {
+        lines.push({ label: 'Monto', value: `${parsed.monto_factura} ${parsed.moneda_factura || 'USD'}` });
+      } else {
+        lines.push({ label: 'Monto', value: 'No especificado' });
+      }
+      if (parsed.descripcion_factura) lines.push({ label: 'Descripción', value: parsed.descripcion_factura });
+      return lines;
+    }
+    if (parsed.intent === 'offramp') {
+      const lines: { label: string; value: string }[] = [];
+      if (parsed.monto_por_persona) lines.push({ label: 'Monto', value: `${parsed.monto_por_persona} ${parsed.moneda || 'SOL'}` });
+      return lines;
+    }
+    return [];
+  }
+
+  const HELP_DEFAULT = 'Puedo hacer 3 cosas por ti: 1) Pagar nómina — transfiero SOL a tu equipo con una frase. 2) Generar facturas — creo y rastreo cobros a tus clientes. 3) Convertir cripto a fiat — convierto tu SOL a dinero en tu cuenta bancaria. ¿Por dónde quieres empezar?';
+>>>>>>> Stashed changes
 
   const handleAnalyze = async () => {
     if (!text.trim() || loading) return;
@@ -237,6 +293,7 @@ const Index = () => {
     }
   };
 
+<<<<<<< Updated upstream
   async function handleMissingDataConfirm() {
     // Validar que todos los campos estén completos
     const empty = missingDataFields.find(f => !f.value.trim());
@@ -300,12 +357,32 @@ const Index = () => {
       setShowMissingDataModal(false);
       setPendingParsed(null);
     }
+=======
+  function handleMontoConfirm() {
+    const val = parseFloat(montoInput);
+    if (!val || val <= 0) { setMontoError(true); return; }
+
+    const updated = { ...aiResponse!, monto_factura: val, moneda_factura: monedaInput };
+    sessionStorage.setItem('parsedRule', JSON.stringify(updated));
+    setShowMontoModal(false);
+    navigate('/invoice');
+>>>>>>> Stashed changes
   }
 
   function handleConfirm() {
     if (!aiResponse) return;
 
-    if (aiResponse.intent === 'factura') { navigate('/invoice'); return; }
+    if (aiResponse.intent === 'factura') {
+      if (!aiResponse.monto_factura || aiResponse.monto_factura <= 0) {
+        setMontoInput('');
+        setMonedaInput(aiResponse.moneda_factura || 'USD');
+        setMontoError(false);
+        setShowMontoModal(true);
+        return;
+      }
+      navigate('/invoice');
+      return;
+    }
     if (aiResponse.intent === 'offramp') { navigate('/offramp'); return; }
 
     const missing = (aiResponse.destinatariosConWallet || []).filter(d => !d.wallet);
@@ -437,6 +514,71 @@ const Index = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Modal: monto faltante en factura */}
+      {showMontoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
+          <div className="fp-card w-full max-w-sm p-6 animate-fade-in">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-yellow-500/15 flex items-center justify-center shrink-0">
+                  <AlertCircle className="w-5 h-5 text-yellow-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">Falta el monto</h2>
+                  <p className="text-xs text-muted-foreground">No detecté una cantidad en tu instrucción</p>
+                </div>
+              </div>
+              <button onClick={() => setShowMontoModal(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
+              ¿A qué monto quieres facturar a <span className="text-foreground font-semibold">{aiResponse?.cliente || 'este cliente'}</span>?
+            </p>
+
+            <div className="flex gap-2 mb-2">
+              <input
+                type="number"
+                min="0"
+                step="any"
+                autoFocus
+                value={montoInput}
+                onChange={e => { setMontoInput(e.target.value); setMontoError(false); }}
+                onKeyDown={e => e.key === 'Enter' && handleMontoConfirm()}
+                placeholder="0.00"
+                className={`fp-input flex-1 px-4 py-3 text-sm ${montoError ? 'border-destructive' : ''}`}
+              />
+              <select
+                value={monedaInput}
+                onChange={e => setMonedaInput(e.target.value)}
+                className="fp-input px-3 py-3 text-sm font-medium cursor-pointer"
+              >
+                <option value="USD">USD</option>
+                <option value="SOL">SOL</option>
+                <option value="USDC">USDC</option>
+              </select>
+            </div>
+
+            {montoError && (
+              <p className="text-xs text-destructive mb-3 flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                Ingresa un monto válido mayor a 0
+              </p>
+            )}
+
+            <div className="flex gap-3 mt-4">
+              <button onClick={() => setShowMontoModal(false)} className="fp-btn-secondary flex-1 py-3 text-sm">
+                Cancelar
+              </button>
+              <button onClick={handleMontoConfirm} className="fp-btn-primary flex-[2] py-3 text-sm">
+                Continuar con factura →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal: ayuda */}
       {helpMessage && (

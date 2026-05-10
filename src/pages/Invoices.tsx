@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Plus, CheckCircle2, Clock, XCircle, ExternalLink } from 'lucide-react';
+import { FileText, Plus, CheckCircle2, Clock, XCircle, ExternalLink, Link2 } from 'lucide-react';
 import Header from '@/components/Header';
 import { supabase } from '@/lib/supabase';
 
@@ -13,6 +13,7 @@ interface Invoice {
   moneda_pago: string;
   descripcion: string;
   status: 'pendiente' | 'pagada' | 'cancelada';
+  tx_hash: string | null;
   created_at: string;
 }
 
@@ -25,8 +26,16 @@ const STATUS_CONFIG = {
 export default function Invoices() {
   const navigate = useNavigate();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading,  setLoading]  = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [copied,   setCopied]   = useState<string | null>(null);
+
+  function copyPayLink(invoiceId: string) {
+    const url = `${window.location.origin}/pay/${invoiceId}`;
+    navigator.clipboard.writeText(url);
+    setCopied(invoiceId);
+    setTimeout(() => setCopied(null), 2000);
+  }
 
   useEffect(() => { fetchInvoices(); }, []);
 
@@ -153,16 +162,34 @@ export default function Invoices() {
                       </div>
                     </div>
 
+                    {/* TX hash para facturas pagadas */}
+                    {inv.status === 'pagada' && inv.tx_hash && (
+                      <div className="mt-3 pt-3 border-t border-border/50">
+                        <p className="text-xs text-muted-foreground mb-1">Prueba de pago on-chain</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-mono text-[10px] text-primary truncate flex-1">{inv.tx_hash}</p>
+                          <a
+                            href={`https://explorer.solana.com/tx/${inv.tx_hash}?cluster=devnet`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0 text-primary hover:text-primary/70 transition-colors"
+                            title="Ver en Solana Explorer"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
                     {inv.status === 'pendiente' && (
                       <div className="flex gap-2 mt-4 pt-3 border-t border-border/50">
                         <button
-                          onClick={() => markAsPaid(inv.id)}
-                          disabled={updating === inv.id}
+                          onClick={() => copyPayLink(inv.invoice_id)}
                           className="fp-btn-primary flex-1 py-2 text-xs flex items-center justify-center gap-1.5"
                         >
-                          {updating === inv.id
-                            ? <div className="fp-spinner w-3 h-3" />
-                            : <><CheckCircle2 className="w-3.5 h-3.5" /> Marcar como pagada</>}
+                          {copied === inv.invoice_id
+                            ? <><CheckCircle2 className="w-3.5 h-3.5" /> Link copiado!</>
+                            : <><Link2 className="w-3.5 h-3.5" /> Copiar link de pago</>}
                         </button>
                         <button
                           onClick={() => markAsCancelled(inv.id)}
