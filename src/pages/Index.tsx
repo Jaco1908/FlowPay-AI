@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Zap, AlertCircle, Clock, X, Users, UserPlus, Mail, Wallet,
-  Lock, CheckCircle2, CreditCard, ShieldCheck, ShieldAlert,
+  Lock, CheckCircle2, ShieldCheck, ShieldAlert,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from '@/components/Header';
@@ -363,7 +363,6 @@ const Index = () => {
           nombre: form.nombre.trim(),
           email: form.email.toLowerCase().trim(),
           wallet: form.wallet.trim() || null,
-          clabe: form.clabe.trim() || null,
           password: hashed,
           role: 'employee',
         });
@@ -638,29 +637,16 @@ const Index = () => {
                   )}
 
                   {!form.exists && (
-                    <>
-                      <div className="relative">
-                        <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                        <input
-                          value={form.clabe}
-                          onChange={e => updateForm(i, 'clabe', e.target.value.replace(/\D/g, '').slice(0, 10))}
-                          placeholder="Número de cuenta (opcional, 10 dígitos)"
-                          inputMode="numeric"
-                          className="fp-input w-full pl-9 pr-3 py-2.5 text-sm font-mono"
-                        />
-                      </div>
-
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                        <input
-                          type="password"
-                          value={form.password}
-                          onChange={e => updateForm(i, 'password', e.target.value)}
-                          placeholder="Contraseña de acceso (mín. 6 caracteres)"
-                          className="fp-input w-full pl-9 pr-3 py-2.5 text-sm"
-                        />
-                      </div>
-                    </>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                      <input
+                        type="password"
+                        value={form.password}
+                        onChange={e => updateForm(i, 'password', e.target.value)}
+                        placeholder="Contraseña de acceso (mín. 6 caracteres)"
+                        className="fp-input w-full pl-9 pr-3 py-2.5 text-sm"
+                      />
+                    </div>
                   )}
                 </div>
               ))}
