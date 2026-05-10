@@ -1,5 +1,5 @@
 {
-  "name": "plena-react-starter-app",
+  "name": "flowpay-ai",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -46,7 +46,9 @@
     "@solana/wallet-adapter-react-ui": "^0.9.38",
     "@solana/wallet-adapter-wallets": "^0.19.33",
     "@solana/web3.js": "^1.98.2",
+    "@streamflow/stream": "^12.1.0",
     "@supabase/supabase-js": "^2.57.4",
+    "bn.js": "^5.2.3",
     "bs58": "^6.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

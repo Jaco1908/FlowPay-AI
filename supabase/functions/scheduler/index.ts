@@ -47,6 +47,21 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
+  // Verificación de seguridad: requiere X-FlowPay-Secret para llamadas internas (pg_cron)
+  const secret = Deno.env.get("FLOWPAY_CRON_SECRET") ?? "";
+  const incomingSecret = req.headers.get("x-flowpay-secret") ?? "";
+  const authHeader = req.headers.get("authorization") ?? "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+  const validSecret = secret && incomingSecret === secret;
+  const validJwt = authHeader === `Bearer ${serviceKey}`;
+
+  if (!validSecret && !validJwt) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+  }
+
   const CONNECTION = new Connection("https://api.devnet.solana.com", "confirmed");
   const supabase = getSupabase();
   const now = new Date();

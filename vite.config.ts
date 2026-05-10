@@ -18,4 +18,17 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor':   ['react', 'react-dom', 'react-router-dom'],
+          'solana-vendor':  ['@solana/web3.js', '@solana/wallet-adapter-react', '@solana/wallet-adapter-base'],
+          'ui-vendor':      ['framer-motion', 'recharts', 'lucide-react'],
+          'supabase-vendor': ['@supabase/supabase-js'],
+        },
+      },
+    },
+  },
 }) 

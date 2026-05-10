@@ -2,217 +2,100 @@
 
 > B2B Command Center para automatizar nóminas, facturación y off-ramp en Solana usando lenguaje natural.
 
-Construido en el **WEB3PACK Hackathon 2026**.
+Construido en el **WEB3PACK Hackathon 2026** — transacciones reales en Solana Devnet, verificables on-chain.
 
 ---
 
 ## ¿Qué hace?
 
-FlowPay AI permite a administradores de empresas automatizar pagos cripto escribiendo una sola frase en español o inglés:
+FlowPay AI permite a administradores de empresas automatizar pagos cripto escribiendo una sola frase:
 
 > *"Paga 0.05 SOL a Ana, Luis y Carlos cada viernes"*
 > *"Genera factura de $1500 a Acme Inc por servicios de desarrollo"*
 > *"Convierte 2 SOL a USD en mi cuenta bancaria"*
 
-La IA interpreta la instrucción, clasifica el intent y ejecuta transacciones reales en Solana — cada una con hash verificable on-chain.
+La IA interpreta la instrucción, clasifica el intent y ejecuta transacciones reales en Solana — con hash verificable on-chain y registro inmutable en un smart contract Anchor desplegado en Devnet.
+
+---
+
+## Arquitectura
+
+```
+Usuario (Browser)
+    │
+    ▼
+Vercel — React 18 SPA (TypeScript + Vite)
+    │
+    ├─► Supabase Edge Functions (Deno)
+    │       ├── rules-parse    → Groq AI (NLP, llama-3.1-8b-instant)
+    │       ├── rules-execute  → Solana Devnet (pagos inmediatos)
+    │       ├── scheduler      → Solana Devnet (pagos recurrentes)
+    │       ├── siws-nonce     → Sign In With Solana
+    │       └── siws-verify    → Sign In With Solana
+    │
+    ├─► Supabase PostgreSQL
+    │       └── pg_cron + pg_net → scheduler (cada minuto)
+    │
+    └─► Solana Devnet
+            ├── Transferencias SOL (SystemProgram)
+            ├── FlowPay Anchor Program (PDAs — registro inmutable)
+            │   Dv3iyDKKqxxno1DvuJGHfp6MDHhQsVVejfztcmoqUnds
+            └── StreamFlow Finance SDK (payment streams)
+```
 
 ---
 
 ## Funcionalidades
 
-### Admin
-- **Command Center** — Input de lenguaje natural con chips de acción rápida (Pagar Nómina / Generar Factura / Convertir a Fiat)
-- **Pagos automáticos** — Ejecuta transferencias SOL en Solana Devnet con verificación on-chain
-- **Reglas recurrentes** — Vista calendario y lista, toggle activo/pausado por regla
-- **Gestión de equipo** — CRUD de colaboradores con wallets de Solana
-- **Facturas** — Generación, seguimiento (pendiente/pagada/cancelada) con previsualización de recibo
-- **Off-Ramp simulado** — Conversión cripto→fiat con precio SOL en tiempo real (CoinGecko)
-- **Dashboard** — Gráficas de SOL enviado por día, top destinatarios, resumen de facturas
-- **Historial** — Todas las transacciones con hash copiable y link a Solana Explorer
+### Panel Admin
+| Feature | Descripción |
+|---------|-------------|
+| **Command Center** | Input en lenguaje natural con chips de acción rápida |
+| **Pagos directos** | Transferencias SOL inmediatas con verificación on-chain |
+| **Reglas recurrentes** | Pagos automáticos (diario / semanal / mensual / única vez) |
+| **Registro on-chain** | Cada pago queda registrado en el contrato FlowPay (Anchor) |
+| **Payment Streams** | Integración StreamFlow Finance para pagos por segundo |
+| **Gestión de equipo** | CRUD de colaboradores con wallets Solana |
+| **Facturas** | Generación, seguimiento y previsualización de recibos |
+| **Off-Ramp** | Conversión cripto → fiat con precio SOL en tiempo real |
+| **Dashboard** | Gráficas de SOL enviado, top destinatarios, métricas |
+| **Historial** | Transacciones con hash copiable y link a Solana Explorer |
 
 ### Seguridad
 - Contraseñas hasheadas con SHA-256 + salt (email)
-- Verificación de sesión contra DB en cada carga
-- Edge Functions protegidas con header secreto
-- Brute force protection (5 intentos → 30s lockout)
-- Recuperación de contraseña con token temporal
+- Verificación de sesión contra DB en cada carga de página
+- Edge Functions protegidas con header secreto (`X-FlowPay-Secret`)
+- Scheduler protegido con secreto dedicado (`FLOWPAY_CRON_SECRET`) guardado en Supabase Vault
+- Sign In With Solana (SIWS) — autenticación Web3 nativa
+- Brute force protection (5 intentos fallidos → 30s lockout)
+- Recuperación de contraseña con token temporal de un solo uso
+
+### Automatización
+- **pg_cron** dispara el scheduler cada minuto
+- **pg_net** hace HTTP POST a la Edge Function sin bloquear el DB
+- Logs auditables en tabla `scheduler_logs`
+- Secreto leído desde **Supabase Vault** (nunca hardcodeado)
 
 ---
 
 ## Tech Stack
 
 | Capa | Tecnología |
-|------|-----------|
+|------|------------|
 | Frontend | React 18 + Vite + TypeScript |
 | Estilos | Tailwind CSS 3.4 + Radix UI |
 | Animaciones | Framer Motion |
 | Gráficas | Recharts |
 | Backend | Supabase Edge Functions (Deno) |
 | Base de datos | Supabase (PostgreSQL) |
+| Automatización | pg_cron + pg_net + Supabase Vault |
 | IA | Groq API — `llama-3.1-8b-instant` |
-| Blockchain | Solana Devnet (`@solana/web3.js`) |
-| Wallet | Phantom Wallet Adapter |
-| Scheduler | pg_cron + pg_net (Supabase) |
+| Blockchain | Solana Devnet · `@solana/web3.js` |
+| Smart Contract | Anchor v0.30 · `cargo build-sbf` |
+| Payment Streams | StreamFlow Finance SDK v12 |
+| Wallet | Phantom · `@solana/wallet-adapter-react` |
 | Price Oracle | CoinGecko API (tiempo real) |
-
----
-
-## Requisitos previos
-
-- **Node.js** v18 o superior — [nodejs.org](https://nodejs.org)
-- **npm** v9 o superior (incluido con Node.js)
-- **Cuenta Supabase** — [supabase.com](https://supabase.com)
-- **Cuenta Groq** (para la API key) — [console.groq.com](https://console.groq.com)
-- **Phantom Wallet** (para firmar transacciones en demo) — [phantom.app](https://phantom.app)
-
----
-
-## Instalación
-
-### 1. Clonar e instalar dependencias
-
-```bash
-git clone <repo-url>
-cd Hackathon
-npm install
-```
-
-### 2. Configurar variables de entorno
-
-```bash
-cp .env.example .env.local
-```
-
-Edita `.env.local` con tus valores:
-
-```env
-VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
-VITE_SUPABASE_ANON_KEY=tu-anon-key
-VITE_FLOWPAY_SECRET=tu-secreto
-```
-
-> Los valores reales los obtiene el equipo directamente del owner del proyecto.
-
-### 3. Ejecutar en desarrollo
-
-```bash
-npm run dev
-```
-
-La app estará en `http://localhost:8080`
-
----
-
-## Configuración de Supabase
-
-### Tablas necesarias
-
-Ejecuta en **Supabase → SQL Editor**:
-
-```sql
--- Empleados / usuarios
-create table employees (
-  id uuid primary key default gen_random_uuid(),
-  nombre text not null,
-  email text unique not null,
-  wallet text,
-  password text not null,
-  role text default 'employee',
-  created_at timestamptz default now()
-);
-
--- Reglas de pago automático
-create table rules (
-  id uuid primary key default gen_random_uuid(),
-  raw_text text,
-  destinatarios jsonb,
-  monto_por_persona numeric,
-  moneda text default 'SOL',
-  frecuencia text,
-  dia_de_pago text,
-  status text default 'active',
-  last_executed_at timestamptz,
-  created_at timestamptz default now()
-);
-
--- Historial de ejecuciones
-create table executions (
-  id uuid primary key default gen_random_uuid(),
-  rule_id uuid references rules(id) on delete set null,
-  destinatario_nombre text,
-  destinatario_wallet text,
-  monto numeric,
-  moneda text,
-  tx_hash text,
-  status text,
-  executed_at timestamptz default now()
-);
-
--- Facturas
-create table invoices (
-  id uuid primary key default gen_random_uuid(),
-  invoice_id text unique not null,
-  cliente text not null,
-  monto numeric not null,
-  moneda_factura text default 'USD',
-  moneda_pago text default 'SOL',
-  descripcion text,
-  status text default 'pendiente',
-  raw_text text,
-  created_at timestamptz default now()
-);
-```
-
-### Usuario admin inicial
-
-```sql
-insert into employees (nombre, email, password, role)
-values (
-  'Admin',
-  'admin@flowpay.com',
-  encode(digest('admin@flowpay.com:admin123', 'sha256'), 'hex'),
-  'admin'
-);
-```
-
-### Edge Functions
-
-```bash
-# Login con tu cuenta de Supabase
-npx supabase login
-
-# Desplegar las funciones
-npx supabase functions deploy rules-parse
-npx supabase functions deploy rules-execute
-npx supabase functions deploy scheduler
-```
-
-Configura los secretos en **Supabase → Edge Functions → Manage secrets**:
-
-| Nombre | Valor |
-|--------|-------|
-| `GROQ_API_KEY` | Tu API key de Groq |
-| `FLOWPAY_SECRET` | El mismo valor que `VITE_FLOWPAY_SECRET` |
-| `EMPRESA_PRIVATE_KEY` | Array JSON de la private key de la wallet empresa |
-
----
-
-## Dependencias principales
-
-```
-react@18                    UI framework
-react-router-dom@6          Routing
-typescript@5                Type safety
-tailwindcss@3.4             Estilos utility-first
-framer-motion@12            Animaciones
-recharts@2                  Gráficas
-@radix-ui/*                 Componentes accesibles
-@solana/web3.js@1           Transacciones en Solana
-@solana/wallet-adapter-*    Integración Phantom Wallet
-@supabase/supabase-js@2     Cliente de Supabase
-lucide-react                Íconos
-clsx + tailwind-merge       Utilidades de clases CSS
-```
+| Deploy | Vercel (frontend) + Supabase (backend) |
 
 ---
 
@@ -220,49 +103,368 @@ clsx + tailwind-merge       Utilidades de clases CSS
 
 | Ruta | Descripción | Rol |
 |------|-------------|-----|
-| `/login` | Autenticación con brute-force protection | Todos |
-| `/` | Command Center — input de lenguaje natural | Admin |
-| `/confirm` | Confirmación y ejecución de pagos en Solana | Admin |
-| `/success` | Resultado de transacciones con hashes on-chain | Admin |
+| `/login` | Email/password o Sign In With Solana | Todos |
+| `/` | Command Center — input lenguaje natural | Admin |
+| `/confirm` | Confirmación y ejecución de pagos | Admin |
+| `/success` | Resultado con hashes on-chain + registro Anchor | Admin |
 | `/rules` | Reglas activas — vista calendario y lista | Admin |
 | `/history` | Historial completo de transacciones | Admin |
-| `/team` | Gestión de colaboradores | Admin |
-| `/invoice` | Confirmar y crear factura con previsualización | Admin |
+| `/team` | CRUD de colaboradores | Admin |
+| `/invoice` | Confirmar y crear factura | Admin |
 | `/invoices` | Listado y gestión de facturas | Admin |
 | `/offramp` | Conversión cripto → fiat | Admin |
-| `/dashboard` | Gráficas y métricas | Admin |
+| `/dashboard` | Métricas y gráficas | Admin |
 | `/employee` | Dashboard del colaborador | Employee |
+
+---
+
+## Inicio rápido (desarrollo local)
+
+### Requisitos
+- **Node.js** v18+ — [nodejs.org](https://nodejs.org)
+- **Phantom Wallet** (extensión browser) — [phantom.app](https://phantom.app)
+- Cuenta **Supabase** — [supabase.com](https://supabase.com)
+- API key **Groq** — [console.groq.com](https://console.groq.com)
+
+### 1. Clonar e instalar
+
+```bash
+git clone https://github.com/tu-usuario/flowpay-ai.git
+cd flowpay-ai
+npm install
+```
+
+### 2. Variables de entorno
+
+```bash
+cp .env.example .env.local
+```
+
+Edita `.env.local` con tus valores reales (ver tabla en la sección [Variables de entorno](#variables-de-entorno)).
+
+### 3. Levantar dev server
+
+```bash
+npm run dev
+# → http://localhost:5173
+```
+
+---
+
+## Configuración de Supabase
+
+### Paso 1 — Crear el esquema (SQL Editor)
+
+Ejecuta este script completo en **Supabase → SQL Editor → New query**:
+
+```sql
+-- ── Tablas principales ────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS employees (
+  id         UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  nombre     TEXT NOT NULL,
+  email      TEXT UNIQUE NOT NULL,
+  password   TEXT NOT NULL,
+  wallet     TEXT,
+  role       TEXT DEFAULT 'employee',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS rules (
+  id                UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  raw_text          TEXT NOT NULL,
+  destinatarios     JSONB NOT NULL,
+  monto_por_persona DECIMAL NOT NULL,
+  moneda            TEXT DEFAULT 'SOL',
+  frecuencia        TEXT,
+  dia_de_pago       TEXT,
+  status            TEXT DEFAULT 'active',
+  last_executed_at  TIMESTAMPTZ,
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS executions (
+  id                   UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  rule_id              UUID REFERENCES rules(id) ON DELETE SET NULL,
+  destinatario_nombre  TEXT,
+  destinatario_wallet  TEXT,
+  monto                DECIMAL,
+  moneda               TEXT DEFAULT 'SOL',
+  tx_hash              TEXT,
+  on_chain_record      TEXT,
+  status               TEXT DEFAULT 'pending',
+  executed_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS invoices (
+  id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  invoice_id      TEXT UNIQUE NOT NULL,
+  cliente         TEXT NOT NULL,
+  monto           DECIMAL NOT NULL,
+  moneda_factura  TEXT DEFAULT 'USD',
+  moneda_pago     TEXT DEFAULT 'SOL',
+  descripcion     TEXT,
+  status          TEXT DEFAULT 'pendiente',
+  raw_text        TEXT,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── Scheduler logs (pg_cron audit trail) ─────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS scheduler_logs (
+  id              BIGSERIAL PRIMARY KEY,
+  triggered_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  net_request_id  BIGINT,
+  status          TEXT NOT NULL DEFAULT 'triggered',
+  response_status INT,
+  notes           TEXT
+);
+
+-- ── RLS ───────────────────────────────────────────────────────────────────────
+
+ALTER TABLE employees      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE rules          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE executions     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invoices       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE scheduler_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "allow_all_employees"  ON employees      FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "service_role_rules"   ON rules          FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "anon_read_rules"      ON rules          FOR SELECT TO anon USING (true);
+CREATE POLICY "service_role_exec"    ON executions     FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "anon_read_exec"       ON executions     FOR SELECT TO anon USING (true);
+CREATE POLICY "service_role_inv"     ON invoices       FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "service_role_logs"    ON scheduler_logs FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- ── Admin inicial ─────────────────────────────────────────────────────────────
+
+INSERT INTO employees (nombre, email, password, wallet, role)
+VALUES ('Administrador', 'admin@flowpay.com', 'admin123', '', 'admin')
+ON CONFLICT (email) DO NOTHING;
+```
+
+### Paso 2 — pg_cron + pg_net (automatización)
+
+Ejecuta este segundo script **después** del primero:
+
+```sql
+-- Habilitar extensiones (ya vienen preinstaladas en Supabase)
+CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS pg_net  WITH SCHEMA extensions;
+
+-- Guardar el secreto en Vault
+-- Reemplaza 'tu-flowpay-cron-secret' con el valor de FLOWPAY_CRON_SECRET
+SELECT vault.create_secret(
+  'tu-flowpay-cron-secret',
+  'flowpay_cron_secret',
+  'Secret para pg_cron → scheduler Edge Function'
+);
+
+-- Función que dispara el scheduler
+CREATE OR REPLACE FUNCTION public.flowpay_trigger_scheduler()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, extensions, vault AS $$
+DECLARE
+  v_secret     text;
+  v_request_id bigint;
+  v_url        text := 'https://TU-PROJECT-REF.supabase.co/functions/v1/scheduler';
+BEGIN
+  SELECT decrypted_secret INTO v_secret
+  FROM vault.decrypted_secrets
+  WHERE name = 'flowpay_cron_secret' LIMIT 1;
+
+  IF v_secret IS NULL THEN
+    INSERT INTO scheduler_logs (status, notes)
+      VALUES ('error', 'Vault secret flowpay_cron_secret no encontrado');
+    RETURN;
+  END IF;
+
+  SELECT net.http_post(
+    url     := v_url,
+    headers := jsonb_build_object(
+      'Content-Type',     'application/json',
+      'x-flowpay-secret', v_secret
+    ),
+    body := '{}'::jsonb
+  ) INTO v_request_id;
+
+  INSERT INTO scheduler_logs (net_request_id, status) VALUES (v_request_id, 'triggered');
+EXCEPTION WHEN OTHERS THEN
+  INSERT INTO scheduler_logs (status, notes) VALUES ('error', SQLERRM);
+END;
+$$;
+
+-- Cron job: cada minuto (ideal para demo)
+SELECT cron.schedule(
+  'flowpay-scheduler',
+  '* * * * *',
+  'SELECT public.flowpay_trigger_scheduler()'
+);
+```
+
+> Reemplaza `TU-PROJECT-REF` con tu project ref de Supabase (ej: `ofnijwxokgzdzoiomptp`).
+
+### Paso 3 — Edge Functions
+
+```bash
+# Login (solo la primera vez)
+npx supabase login
+
+# Vincular al proyecto
+npx supabase link --project-ref TU-PROJECT-REF
+
+# Configurar secrets de las funciones
+npx supabase secrets set \
+  GROQ_API_KEY=tu-groq-api-key \
+  FLOWPAY_SECRET=tu-flowpay-secret \
+  FLOWPAY_CRON_SECRET=tu-flowpay-cron-secret \
+  EMPRESA_WALLET_PRIVATE_KEY=tu-private-key-base58
+
+# Desplegar funciones
+npx supabase functions deploy rules-parse
+npx supabase functions deploy rules-execute
+npx supabase functions deploy scheduler --no-verify-jwt
+npx supabase functions deploy siws-nonce
+npx supabase functions deploy siws-verify
+```
+
+> El scheduler se despliega con `--no-verify-jwt` porque pg_cron usa un header secreto en lugar de JWT.
+
+---
+
+## Deploy en Vercel
+
+### Opción A — GitHub (recomendado)
+
+1. Haz push del repo a GitHub
+2. Ve a [vercel.com/new](https://vercel.com/new) e importa el repositorio
+3. Vercel detecta Vite automáticamente (build: `npm run build`, output: `dist`)
+4. Agrega las variables de entorno en **Settings → Environment Variables**:
+
+| Variable | Valor |
+|----------|-------|
+| `VITE_SUPABASE_URL` | `https://tu-project-ref.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Tu anon key pública |
+| `VITE_FLOWPAY_SECRET` | Tu secreto de Edge Functions |
+| `VITE_EMPRESA_WALLET_ADDRESS` | Wallet pública de la empresa |
+| `VITE_APP_URL` | `https://tu-app.vercel.app` |
+
+5. Haz clic en **Deploy** — listo en ~60 segundos.
+
+### Opción B — Vercel CLI
+
+```bash
+npm i -g vercel
+vercel --prod
+```
+
+Vercel leerá `vercel.json` automáticamente (SPA routing ya configurado).
+
+### Verificar el deploy
+
+Todas las rutas (`/login`, `/rules`, `/dashboard`, etc.) deben funcionar al refrescar el browser gracias al rewrite en `vercel.json`.
+
+---
+
+## Variables de entorno
+
+### Frontend (`.env.local` en dev / Vercel dashboard en prod)
+
+| Variable | Descripción | Ejemplo |
+|----------|-------------|---------|
+| `VITE_SUPABASE_URL` | URL del proyecto Supabase | `https://abc123.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Anon key pública de Supabase | `eyJhbGci...` |
+| `VITE_FLOWPAY_SECRET` | Secreto compartido con Edge Functions | `fp_secret_...` |
+| `VITE_EMPRESA_WALLET_ADDRESS` | Wallet pública de la empresa (Base58) | `6tV38Z...` |
+| `VITE_APP_URL` | URL base de la app | `http://localhost:5173` |
+
+### Edge Functions (Supabase Secrets — nunca en `.env`)
+
+| Secret | Descripción |
+|--------|-------------|
+| `GROQ_API_KEY` | API key de Groq para el NLP |
+| `FLOWPAY_SECRET` | Mismo valor que `VITE_FLOWPAY_SECRET` |
+| `FLOWPAY_CRON_SECRET` | Secreto exclusivo para pg_cron (guardado en Vault) |
+| `EMPRESA_WALLET_PRIVATE_KEY` | Clave privada Base58 de la wallet que firma pagos |
+| `SUPABASE_URL` | Inyectado automáticamente por Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Inyectado automáticamente por Supabase |
+
+---
+
+## Smart Contract (Anchor)
+
+El programa **FlowPay** está desplegado en Solana Devnet:
+
+```
+Program ID: Dv3iyDKKqxxno1DvuJGHfp6MDHhQsVVejfztcmoqUnds
+```
+
+- [Ver en Solana Explorer](https://explorer.solana.com/address/Dv3iyDKKqxxno1DvuJGHfp6MDHhQsVVejfztcmoqUnds?cluster=devnet)
+- Cada pago ejecutado crea un PDA (`PaymentRecord`) con: monto, empleado, empresa, timestamp, rule_id
+- Construido con Anchor v0.30.1 + `cargo build-sbf`
+
+Para recompilar y redesplegar (requiere WSL2 + Solana CLI):
+
+```bash
+# Desde WSL2
+cargo build-sbf --manifest-path programs/flowpay/Cargo.toml
+solana program deploy target/deploy/flowpay.so
+```
+
+---
+
+## Monitoreo del scheduler
+
+```sql
+-- Últimas ejecuciones del cron
+SELECT id, triggered_at, status, response_status, notes
+FROM scheduler_logs
+ORDER BY triggered_at DESC
+LIMIT 20;
+
+-- Estado del job
+SELECT jobid, jobname, schedule, active FROM cron.job;
+
+-- Historial de pg_cron
+SELECT * FROM cron.job_run_details
+WHERE jobname = 'flowpay-scheduler'
+ORDER BY start_time DESC LIMIT 10;
+
+-- Pausar / reanudar
+UPDATE cron.job SET active = false WHERE jobname = 'flowpay-scheduler';
+UPDATE cron.job SET active = true  WHERE jobname = 'flowpay-scheduler';
+```
 
 ---
 
 ## Credenciales de demo
 
 | Rol | Email | Contraseña |
-|-----|-------|-----------|
-| Admin | admin@flowpay.com | admin123 |
-| Empleado | (asignado por admin en /team) | (asignado por admin) |
+|-----|-------|------------|
+| Admin | `admin@flowpay.com` | `admin123` |
+| Empleado | Creado desde `/team` | Asignado por admin |
+
+> La wallet de demo usa Solana Devnet. Obtén SOL gratis en [faucet.solana.com](https://faucet.solana.com).
 
 ---
 
 ## Scripts
 
 ```bash
-npm run dev        # Servidor de desarrollo (localhost:8080)
-npm run build      # Build de producción
-npm run preview    # Preview del build
-npm run lint       # Linter ESLint
+npm run dev      # Dev server → localhost:5173
+npm run build    # Build de producción → dist/
+npm run preview  # Preview del build local
+npm run lint     # ESLint
 ```
 
 ---
 
 ## Red
 
-Actualmente en **Solana Devnet**. Las transacciones son reales y verificables en [explorer.solana.com](https://explorer.solana.com?cluster=devnet).
-
-Para solicitar SOL de prueba: [faucet.solana.com](https://faucet.solana.com)
+**Solana Devnet** — todas las transacciones son reales y verificables en [explorer.solana.com](https://explorer.solana.com?cluster=devnet).
 
 ---
 
 ## Equipo
 
-Construido en el **WEB3PACK Hackathon 2026** en 48 horas.
+Construido en el **WEB3PACK Hackathon 2026**.
