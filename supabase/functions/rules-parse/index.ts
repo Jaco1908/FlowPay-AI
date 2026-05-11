@@ -41,19 +41,30 @@ function textContainsNumber(text: string): boolean {
 
 function findEmployee(nombre: string, employees: Employee[]): MatchResult {
   const search = nombre.toLowerCase().trim();
+  const searchTokens = search.split(/\s+/).filter(Boolean);
   const found: Employee[] = [];
 
   for (const emp of employees) {
     const fullName = emp.nombre.toLowerCase().trim();
     const firstName = fullName.split(" ")[0];
 
-    if (
-      fullName === search ||
-      firstName === search ||
-      (firstName.startsWith(search) && search.length >= 3) ||
-      (search.startsWith(firstName) && firstName.length >= 3)
-    ) {
-      found.push(emp);
+    // Priorizar coincidencia exacta completa
+    if (fullName === search) {
+      return { wallet: emp.wallet, exists: true, employeeId: emp.id, ambiguous: false, matches: [] };
+    }
+
+    if (searchTokens.length === 1) {
+      if (
+        firstName === search ||
+        (firstName.startsWith(search) && search.length >= 3) ||
+        (search.startsWith(firstName) && firstName.length >= 3)
+      ) {
+        found.push(emp);
+      }
+    } else {
+      if (fullName.startsWith(search) || search.startsWith(fullName)) {
+        found.push(emp);
+      }
     }
   }
 
@@ -239,15 +250,16 @@ Deno.serve(async (req: Request) => {
       }
     );
 
-    if (ambiguousNames.length > 0) {
-      const msg = ambiguousNames.map(a =>
-        `"${a.nombre}" puede ser: ${a.matches.join(" o ")}`
-      ).join(". ");
-      return new Response(
-        JSON.stringify({ error: `Nombre ambiguo — ${msg}. Por favor usa el nombre completo.` }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // No devolver error, incluir ambiguousNames en el resultado
+    // if (ambiguousNames.length > 0) {
+    //   const msg = ambiguousNames.map(a =>
+    //     `"${a.nombre}" puede ser: ${a.matches.join(" o ")}`
+    //   ).join(". ");
+    //   return new Response(
+    //     JSON.stringify({ error: `Nombre ambiguo — ${msg}. Por favor usa el nombre completo.` }),
+    //     { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    //   );
+    // }
 
     const result = {
       intent: parsed.intent || "pago",
@@ -269,6 +281,8 @@ Deno.serve(async (req: Request) => {
       destino_offramp: parsed.destino_offramp || null,
       // Ayuda
       mensaje_ayuda: parsed.mensaje_ayuda || null,
+      // Ambigüedades
+      ambiguousNames,
     };
 
     return new Response(JSON.stringify(result), {

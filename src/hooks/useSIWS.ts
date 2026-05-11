@@ -79,13 +79,14 @@ export function useSIWS() {
 
       const session: SIWSSession = await verifyRes.json();
 
-      localStorage.setItem('flowpay_user', JSON.stringify({
-        id: session.userId,
-        nombre: session.nombre,
-        wallet: session.publicKey,
-        role: session.role,
-        token: session.token,
-      }));
+      // Remover el guardado en localStorage aquí, se hará en AuthContext
+      // localStorage.setItem('flowpay_user', JSON.stringify({
+      //   id: session.userId,
+      //   nombre: session.nombre,
+      //   wallet: session.publicKey,
+      //   role: session.role,
+      //   token: session.token,
+      // }));
 
       return session;
     } catch (err) {

@@ -199,6 +199,10 @@ const Index = () => {
   const [pendingParsed, setPendingParsed] = useState<ParsedRule | null>(null);
   const [missingDataError, setMissingDataError] = useState<string | null>(null);
 
+  // Modal: nombres ambiguos
+  const [showAmbiguousModal, setShowAmbiguousModal] = useState(false);
+  const [ambiguousSelections, setAmbiguousSelections] = useState<Record<string, string>>({});
+
   // Modal: monto faltante en factura
   const [showMontoModal, setShowMontoModal] = useState(false);
   const [montoInput, setMontoInput] = useState('');
@@ -231,6 +235,14 @@ const Index = () => {
         setPendingParsed(parsed);
         setMissingDataFields(missing);
         setShowMissingDataModal(true);
+        return;
+      }
+
+      // Verificar nombres ambiguos
+      if (parsed.ambiguousNames && parsed.ambiguousNames.length > 0) {
+        setPendingParsed(parsed);
+        setAmbiguousSelections({});
+        setShowAmbiguousModal(true);
         return;
       }
 
@@ -343,8 +355,31 @@ const Index = () => {
     }
   }
 
-  function updateMissingDataField(index: number, value: string) {
-    setMissingDataFields(prev => prev.map((f, i) => i === index ? { ...f, value } : f));
+  function handleAmbiguousConfirm() {
+    if (!pendingParsed) return;
+
+    // Reemplazar los nombres ambiguos con las selecciones
+    const updatedDestinatarios = pendingParsed.destinatarios.map(nombre => {
+      return ambiguousSelections[nombre] || nombre;
+    });
+
+    const updatedParsed = {
+      ...pendingParsed,
+      destinatarios: updatedDestinatarios,
+      // Re-parsear para actualizar destinatariosConWallet
+    };
+
+    // Re-llamar a parseRule con el texto actualizado
+    const updatedText = text.replace(
+      new RegExp(pendingParsed.destinatarios.join('|'), 'g'),
+      match => ambiguousSelections[match] || match
+    );
+
+    setText(updatedText);
+    setShowAmbiguousModal(false);
+    setPendingParsed(null);
+    // Re-ejecutar handleAnalyze con el texto actualizado
+    setTimeout(() => handleAnalyze(), 100);
   }
 
   function updateForm(index: number, field: keyof MissingForm, value: string) {
@@ -518,6 +553,69 @@ const Index = () => {
               </button>
               <button onClick={handleMontoConfirm} className="fp-btn-primary flex-[2] py-3 text-sm">
                 Continuar con factura →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: nombres ambiguos */}
+      {showAmbiguousModal && pendingParsed && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
+          <div className="fp-card w-full max-w-md p-6 animate-fade-in">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-yellow-500/15 flex items-center justify-center shrink-0">
+                  <Users className="w-5 h-5 text-yellow-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">Nombre ambiguo</h2>
+                  <p className="text-xs text-muted-foreground">
+                    Hay varios colaboradores con nombres similares
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowAmbiguousModal(false); setPendingParsed(null); }}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 mb-5">
+              {pendingParsed.ambiguousNames?.map((amb, i) => (
+                <div key={i}>
+                  <label className="text-sm font-medium text-foreground mb-2 block">
+                    ¿A cuál "{amb.nombre}" te refieres?
+                  </label>
+                  <select
+                    value={ambiguousSelections[amb.nombre] || ''}
+                    onChange={e => setAmbiguousSelections(prev => ({ ...prev, [amb.nombre]: e.target.value }))}
+                    className="fp-input w-full px-3 py-2.5 text-sm bg-card"
+                  >
+                    <option value="">Selecciona el colaborador correcto…</option>
+                    {amb.matches.map((match, j) => (
+                      <option key={j} value={match}>{match}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={() => { setShowAmbiguousModal(false); setPendingParsed(null); }}
+                className="fp-btn-secondary flex-1 py-3 text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleAmbiguousConfirm}
+                disabled={pendingParsed.ambiguousNames?.some(a => !ambiguousSelections[a.nombre])}
+                className="fp-btn-primary flex-[2] py-3 text-sm"
+              >
+                Continuar con selección →
               </button>
             </div>
           </div>

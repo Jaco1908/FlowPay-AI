@@ -16,6 +16,8 @@ FlowPay AI permite a administradores de empresas automatizar pagos cripto escrib
 
 La IA interpreta la instrucción, clasifica el intent y ejecuta transacciones reales en Solana — con hash verificable on-chain y registro inmutable en un smart contract Anchor desplegado en Devnet.
 
+Incluye paneles separados para administradores y empleados, con funcionalidades completas de gestión de nóminas, facturación, off-ramp y más.
+
 ---
 
 ## Arquitectura
@@ -26,6 +28,22 @@ Usuario (Browser)
     ▼
 Vercel — React 18 SPA (TypeScript + Vite)
     │
+    ├─► Panel Admin
+    │   ├── Command Center (NLP → reglas)
+    │   ├── Dashboard (métricas, gráficas)
+    │   ├── Gestión Equipo (CRUD empleados)
+    │   ├── Facturas (generación, seguimiento)
+    │   ├── Off-Ramp (SOL → USD)
+    │   └── Historial (transacciones on-chain)
+    │
+    ├─► Panel Empleado
+    │   ├── Balance Wallet (tiempo real)
+    │   ├── Historial Pagos (ejecuciones recibidas)
+    │   ├── Reglas Activas (visualización)
+    │   ├── Configuración CLABE (cuenta bancaria)
+    │   ├── Solicitud Retiros (off-ramp)
+    │   └── Cambio Contraseña
+    │
     ├─► Supabase Edge Functions (Deno)
     │       ├── rules-parse    → Groq AI (NLP, llama-3.1-8b-instant)
     │       ├── rules-execute  → Solana Devnet (pagos inmediatos)
@@ -34,6 +52,7 @@ Vercel — React 18 SPA (TypeScript + Vite)
     │       └── siws-verify    → Sign In With Solana
     │
     ├─► Supabase PostgreSQL
+    │       ├── Tablas: users, rules, executions, invoices, employees
     │       └── pg_cron + pg_net → scheduler (cada minuto)
     │
     └─► Solana Devnet
@@ -61,6 +80,16 @@ Vercel — React 18 SPA (TypeScript + Vite)
 | **Dashboard** | Gráficas de SOL enviado, top destinatarios, métricas |
 | **Historial** | Transacciones con hash copiable y link a Solana Explorer |
 
+### Panel Empleado
+| Feature | Descripción |
+|---------|-------------|
+| **Balance de Wallet** | Visualización en tiempo real del saldo SOL |
+| **Historial de Pagos** | Lista de ejecuciones recibidas con detalles on-chain |
+| **Reglas Activas** | Visualización de reglas recurrentes aplicables |
+| **Cambio de Contraseña** | Actualización segura de credenciales |
+| **Configuración CLABE** | Registro de cuenta bancaria para retiros (bancos ecuatorianos) |
+| **Solicitud de Retiros** | Conversión SOL → USD a cuenta bancaria con confirmación |
+
 ### Seguridad
 - Contraseñas hasheadas con SHA-256 + salt (email)
 - Verificación de sesión contra DB en cada carga de página
@@ -78,24 +107,93 @@ Vercel — React 18 SPA (TypeScript + Vite)
 
 ---
 
+## Instalación y Setup
+
+### Prerrequisitos
+- Node.js 18+
+- Rust 1.70+ (para Anchor)
+- Solana CLI
+- Supabase CLI
+- Yarn o npm
+
+### 1. Clonar el repositorio
+```bash
+git clone https://github.com/tu-usuario/FlowPay-AI.git
+cd FlowPay-AI
+```
+
+### 2. Instalar dependencias
+```bash
+# Frontend
+npm install
+
+# Programa Solana (Anchor)
+cd programs/flowpay
+anchor build
+```
+
+### 3. Configurar Supabase
+```bash
+# Instalar Supabase CLI
+npm install -g supabase
+
+# Iniciar Supabase local
+supabase start
+
+# Aplicar migraciones
+supabase db reset
+```
+
+### 4. Variables de entorno
+Crear `.env.local` con:
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_anon_key
+VITE_GROQ_API_KEY=your_groq_key
+VITE_EMPRESA_WALLET_ADDRESS=your_solana_wallet
+```
+
+### 5. Ejecutar
+```bash
+# Frontend
+npm run dev
+
+# Programa Solana (en otra terminal)
+anchor deploy
+```
+
+---
+
 ## Tech Stack
 
 | Capa | Tecnología |
 |------|------------|
-| Frontend | React 18 + Vite + TypeScript |
-| Estilos | Tailwind CSS 3.4 + Radix UI |
+| Frontend | React 18 + Vite + TypeScript + Tailwind CSS 3.4 + Radix UI |
 | Animaciones | Framer Motion |
 | Gráficas | Recharts |
+| Formularios | React Hook Form + Zod |
 | Backend | Supabase Edge Functions (Deno) |
-| Base de datos | Supabase (PostgreSQL) |
-| Automatización | pg_cron + pg_net + Supabase Vault |
+| Base de datos | Supabase (PostgreSQL) + pg_cron + pg_net |
+| Automatización | Supabase Vault para secretos |
 | IA | Groq API — `llama-3.1-8b-instant` |
-| Blockchain | Solana Devnet · `@solana/web3.js` |
-| Smart Contract | Anchor v0.30 · `cargo build-sbf` |
+| Blockchain | Solana Devnet · `@solana/web3.js` · `@solana/wallet-adapter` |
+| Smart Contract | Anchor v0.30 · Rust |
 | Payment Streams | StreamFlow Finance SDK v12 |
-| Wallet | Phantom · `@solana/wallet-adapter-react` |
-| Price Oracle | CoinGecko API (tiempo real) |
+| Wallet | Phantom · Solflare |
+| Price Oracle | CoinGecko API |
 | Deploy | Vercel (frontend) + Supabase (backend) |
+| Testing | ESLint + TypeScript strict mode |
+| Build Tools | Vite + Cargo |
+
+---
+
+## Archivos Adicionales
+
+- **[AUDIT.md](AUDIT.md)** — Reporte de auditoría de seguridad
+- **[PITCH.md](PITCH.md)** — Presentación del proyecto para inversores
+- **[JUDGE_REPORT.md](JUDGE_REPORT.md)** — Evaluación del hackathon
+- **[supabase/schema.sql](supabase/schema.sql)** — Esquema completo de la base de datos
+- **[programs/flowpay/](programs/flowpay/)** — Código fuente del smart contract Anchor
 
 ---
 
@@ -411,6 +509,14 @@ cargo build-sbf --manifest-path programs/flowpay/Cargo.toml
 solana program deploy target/deploy/flowpay.so
 ```
 
+O usando Docker (multiplataforma):
+
+```bash
+docker build -f programs/flowpay/Dockerfile.build -t flowpay-builder .
+docker run --rm -v $(pwd):/workspace flowpay-builder
+# Luego deploy como arriba
+```
+
 ---
 
 ## Monitoreo del scheduler
@@ -462,6 +568,34 @@ npm run lint     # ESLint
 ## Red
 
 **Solana Devnet** — todas las transacciones son reales y verificables en [explorer.solana.com](https://explorer.solana.com?cluster=devnet).
+
+---
+
+## Estado Actual y Limitaciones
+
+> **Importante:** Este proyecto está en desarrollo activo y contiene bugs críticos documentados. No se recomienda usar en producción o para transacciones reales.
+
+### Bugs Críticos Conocidos
+- **Cálculo de Lamports Incorrecto:** Los pagos se envían con un multiplicador erróneo (1000 veces menor). Ver [AUDIT.md](AUDIT.md) para detalles.
+- **Confusión USDC/SOL:** La interfaz muestra "USDC" pero transfiere SOL nativo.
+- **Integración de Empleados:** Los empleados agregados en `/team` no se conectan con el parser de IA.
+- **Contraseñas en Texto Plano:** Las credenciales no están hasheadas correctamente.
+
+### Limitaciones
+- Solo funciona en Solana Devnet.
+- Scheduler no está completamente automatizado.
+- Falta integración real con USDC SPL Token.
+- No hay ejecución automática de reglas recurrentes sin intervención manual.
+
+Para una auditoría técnica completa, consulta [AUDIT.md](AUDIT.md). Para evaluación como juez de hackathon, ver [JUDGE_REPORT.md](JUDGE_REPORT.md).
+
+---
+
+## Documentos Adicionales
+
+- **[AUDIT.md](AUDIT.md)** — Auditoría técnica completa con bugs, vulnerabilidades y recomendaciones.
+- **[PITCH.md](PITCH.md)** — Guion de presentación para hackathons (3 minutos).
+- **[JUDGE_REPORT.md](JUDGE_REPORT.md)** — Evaluación desde perspectiva de juez de hackathon Solana.
 
 ---
 

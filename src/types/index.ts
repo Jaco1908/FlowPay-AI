@@ -5,6 +5,11 @@ export interface DestinatarioConWallet {
   employeeId: string | null;
 }
 
+export interface AmbiguousName {
+  nombre: string;
+  matches: string[];
+}
+
 export interface ParsedRule {
   intent: 'pago' | 'factura' | 'offramp' | 'ayuda';
   textoOriginal: string;
@@ -30,6 +35,9 @@ export interface ParsedRule {
 
   // ayuda
   mensaje_ayuda: string | null;
+
+  // ambigüedades
+  ambiguousNames: AmbiguousName[];
 }
 
 export interface ExecutionItem {

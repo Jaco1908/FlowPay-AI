@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Zap, AlertCircle, Wallet } from 'lucide-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
@@ -10,16 +10,24 @@ export default function LoginSIWS() {
   const { user, loginWithSIWS } = useAuth();
   const { signIn, loading, error, connected } = useSIWS();
 
-  if (user) {
-    navigate(user.role === 'admin' ? '/' : '/employee', { replace: true });
-    return null;
-  }
+  useEffect(() => {
+    if (user) {
+      navigate(user.role === 'admin' ? '/' : '/employee', { replace: true });
+    }
+  }, [user, navigate]);
+
+  // Quitar el if (user) aquí, usar useEffect
+  // if (user) {
+  //   navigate(user.role === 'admin' ? '/' : '/employee', { replace: true });
+  //   return null;
+  // }
 
   async function handleSignIn() {
     const session = await signIn();
     if (session) {
       await loginWithSIWS(session.userId);
-      navigate(session.role === 'admin' ? '/' : '/employee', { replace: true });
+      // Remover navigate aquí, el re-render por setUser activará la redirección
+      // navigate(session.role === 'admin' ? '/' : '/employee', { replace: true });
     }
   }
 
