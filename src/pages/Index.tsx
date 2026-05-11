@@ -9,7 +9,8 @@ import Header from '@/components/Header';
 import { parseRule } from '@/api/rules/parse';
 import { supabase } from '@/lib/supabase';
 import { hashPassword } from '@/lib/crypto';
-import type { ParsedRule } from '@/types';
+import { resolveAmbiguousNames, updateTextWithResolvedNames } from '@/services/ambiguousNameResolver';
+import type { AmbiguousName, ParsedRule } from '@/types';
 
 const BASE58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const DIAS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
@@ -67,6 +68,49 @@ interface MissingField {
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function parseAmbiguousError(message: string): AmbiguousName[] | null {
+  const regex = /"([^"]+)"\s+puede\s+ser:\s*([^\.]+)\./gi;
+  const results: AmbiguousName[] = [];
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(message)) !== null) {
+    const nombre = match[1].trim();
+    const rawOptions = match[2].trim();
+    const matches = rawOptions.split(/\s+o\s+|,\s*/).map(item => item.trim()).filter(Boolean);
+    if (nombre && matches.length > 0) {
+      results.push({ nombre, matches });
+    }
+  }
+
+  return results.length > 0 ? results : null;
+}
+
+function buildParsedForAmbiguous(text: string, ambiguousNames: AmbiguousName[]): ParsedRule {
+  return {
+    intent: 'pago',
+    textoOriginal: text,
+    destinatarios: ambiguousNames.map(a => a.nombre),
+    destinatariosConWallet: ambiguousNames.map(a => ({ nombre: a.nombre, wallet: null, exists: false, employeeId: null })),
+    monto_por_persona: null,
+    moneda: 'SOL',
+    frecuencia: null,
+    dia_de_pago: null,
+    cliente: null,
+    monto_factura: null,
+    moneda_factura: null,
+    descripcion_factura: null,
+    monto_offramp: null,
+    moneda_origen: null,
+    destino_offramp: null,
+    mensaje_ayuda: null,
+    ambiguousNames,
+  };
+}
 
 function getMissingFields(parsed: ParsedRule): MissingField[] {
   const fields: MissingField[] = [];
@@ -249,7 +293,15 @@ const Index = () => {
       sessionStorage.setItem('parsedRule', JSON.stringify(parsed));
       setAiResponse(parsed);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al analizar la instrucción');
+      const message = err instanceof Error ? err.message : 'Error al analizar la instrucción';
+      const ambiguousNames = parseAmbiguousError(message);
+      if (ambiguousNames) {
+        setPendingParsed(buildParsedForAmbiguous(text.trim(), ambiguousNames));
+        setAmbiguousSelections({});
+        setShowAmbiguousModal(true);
+        return;
+      }
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -356,30 +408,57 @@ const Index = () => {
   }
 
   function handleAmbiguousConfirm() {
-    if (!pendingParsed) return;
+    if (!pendingParsed || !pendingParsed.ambiguousNames) return;
 
-    // Reemplazar los nombres ambiguos con las selecciones
-    const updatedDestinatarios = pendingParsed.destinatarios.map(nombre => {
-      return ambiguousSelections[nombre] || nombre;
-    });
-
-    const updatedParsed = {
-      ...pendingParsed,
-      destinatarios: updatedDestinatarios,
-      // Re-parsear para actualizar destinatariosConWallet
-    };
-
-    // Re-llamar a parseRule con el texto actualizado
-    const updatedText = text.replace(
-      new RegExp(pendingParsed.destinatarios.join('|'), 'g'),
-      match => ambiguousSelections[match] || match
-    );
-
+    // Guardar las selecciones antes de limpiar
+    const selections = { ...ambiguousSelections };
+    
+    // Construir el texto actualizado
+    let updatedText = text;
+    const orderedNames = [...pendingParsed.ambiguousNames].sort((a, b) => b.nombre.length - a.nombre.length);
+    
+    for (const amb of orderedNames) {
+      const replacement = selections[amb.nombre];
+      if (replacement && replacement !== amb.nombre) {
+        const pattern = new RegExp(`\\b${amb.nombre}\\b`, 'gi');
+        updatedText = updatedText.replace(pattern, replacement);
+      }
+    }
+    
     setText(updatedText);
     setShowAmbiguousModal(false);
     setPendingParsed(null);
-    // Re-ejecutar handleAnalyze con el texto actualizado
-    setTimeout(() => handleAnalyze(), 100);
+    setAmbiguousSelections({});
+    
+    // Re-ejecutar análisis con el nuevo texto
+    setLoading(true);
+    setTimeout(async () => {
+      try {
+        const parsed = await parseRule(updatedText.trim());
+        
+        if (parsed.intent === 'ayuda') {
+          setHelpMessage(parsed.mensaje_ayuda || HELP_DEFAULT);
+          setLoading(false);
+          return;
+        }
+
+        const missing = getMissingFields(parsed);
+        if (missing.length > 0) {
+          setPendingParsed(parsed);
+          setMissingDataFields(missing);
+          setShowMissingDataModal(true);
+          setLoading(false);
+          return;
+        }
+
+        sessionStorage.setItem('parsedRule', JSON.stringify(parsed));
+        setAiResponse(parsed);
+        setLoading(false);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error al analizar la instrucción');
+        setLoading(false);
+      }
+    }, 100);
   }
 
   function updateForm(index: number, field: keyof MissingForm, value: string) {
