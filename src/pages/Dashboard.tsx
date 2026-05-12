@@ -56,9 +56,19 @@ export default function Dashboard() {
   const [invoicePendiente, setInvoicePendiente] = useState(0);
   const [invoicePagada, setInvoicePagada] = useState(0);
   const [invoiceCancelada, setInvoiceCancelada] = useState(0);
-  const [montoPendiente, setMontoPendiente] = useState(0);
-  const [montoPagado, setMontoPagado] = useState(0);
-  const SOL_PRICE_USD = 148;
+  const [rawInvoices, setRawInvoices] = useState<{ status: string; monto: number; moneda_factura: string }[]>([]);
+  const [solPrice, setSolPrice] = useState(148);
+
+  useEffect(() => {
+    fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd')
+      .then(r => r.json())
+      .then(d => setSolPrice(d?.solana?.usd ?? 148))
+      .catch(() => {});
+  }, []);
+
+  const toUSD = (m: number, moneda: string) => moneda === 'SOL' ? m * solPrice : m;
+  const montoPendiente = rawInvoices.filter(i => i.status === 'pendiente').reduce((s, i) => s + toUSD(Number(i.monto), i.moneda_factura), 0);
+  const montoPagado    = rawInvoices.filter(i => i.status === 'pagada').reduce((s, i) => s + toUSD(Number(i.monto), i.moneda_factura), 0);
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -108,12 +118,10 @@ export default function Dashboard() {
     setRecipientData(sorted);
 
     // Facturas
-    const toUSD = (m: number, moneda: string) => moneda === 'SOL' ? m * SOL_PRICE_USD : m;
     setInvoicePendiente(invoices.filter(i => i.status === 'pendiente').length);
     setInvoicePagada(invoices.filter(i => i.status === 'pagada').length);
     setInvoiceCancelada(invoices.filter(i => i.status === 'cancelada').length);
-    setMontoPendiente(invoices.filter(i => i.status === 'pendiente').reduce((s, i) => s + toUSD(Number(i.monto), i.moneda_factura), 0));
-    setMontoPagado(invoices.filter(i => i.status === 'pagada').reduce((s, i) => s + toUSD(Number(i.monto), i.moneda_factura), 0));
+    setRawInvoices(invoices);
 
     setLoading(false);
   }

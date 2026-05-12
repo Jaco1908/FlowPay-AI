@@ -1,26 +1,45 @@
 export type Intent = 'pago' | 'factura' | 'offramp' | 'ayuda';
 
+export interface DestinatarioConWallet {
+  nombre: string;
+  wallet: string | null;
+  exists: boolean;
+  employeeId: string | null;
+}
+
+export interface AmbiguousName {
+  nombre: string;
+  matches: string[];
+}
+
 export interface ParsedRule {
   intent: Intent;
-  // Pago
+  textoOriginal: string;
+
+  // pago
   destinatarios: string[];
-  destinatariosConWallet: { nombre: string; wallet: string | null }[];
-  monto_por_persona: number;
-  moneda: string;
+  destinatariosConWallet: DestinatarioConWallet[];
+  monto_por_persona: number | null;
+  moneda: string | null;
   frecuencia: string | null;
   dia_de_pago: string | null;
-  textoOriginal: string;
-  // Factura
-  cliente?: string;
-  monto_factura?: number;
-  moneda_factura?: string;
-  descripcion_factura?: string;
-  // Off-ramp
-  monto_offramp?: number;
-  moneda_origen?: string;
-  destino_offramp?: string;
-  // Ayuda
-  mensaje_ayuda?: string;
+
+  // factura
+  cliente: string | null;
+  monto_factura: number | null;
+  moneda_factura: string | null;
+  descripcion_factura: string | null;
+
+  // offramp
+  monto_offramp: number | null;
+  moneda_origen: string | null;
+  destino_offramp: string | null;
+
+  // ayuda
+  mensaje_ayuda: string | null;
+
+  // ambigüedades
+  ambiguousNames: AmbiguousName[];
 }
 
 export interface ExecutionItem {

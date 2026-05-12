@@ -63,9 +63,17 @@ export default function Invoices() {
     setUpdating(null);
   }
 
-  const SOL_PRICE_USD = 148;
+  const [solPrice, setSolPrice] = useState(148);
+
+  useEffect(() => {
+    fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd')
+      .then(r => r.json())
+      .then(d => setSolPrice(d?.solana?.usd ?? 148))
+      .catch(() => {});
+  }, []);
+
   const toUSD = (monto: number, moneda: string) =>
-    moneda === 'SOL' ? monto * SOL_PRICE_USD : monto;
+    moneda === 'SOL' ? monto * solPrice : monto;
 
   const totalPendiente = invoices
     .filter(i => i.status === 'pendiente')

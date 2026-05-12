@@ -93,7 +93,7 @@ export default function EmployeeDashboard() {
       supabase
         .from('executions')
         .select('id, monto, tx_hash, status, executed_at, rules(moneda, frecuencia, raw_text)')
-        .eq('destinatario_nombre', nombre)
+        .ilike('destinatario_nombre', nombre)
         .order('executed_at', { ascending: false })
         .limit(20),
       supabase

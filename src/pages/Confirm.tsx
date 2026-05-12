@@ -11,7 +11,7 @@ import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import type { ParsedRule } from '@/types';
 
 const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
-const EMPRESA_WALLET = '6iLi5YmwUbtejobpafvYM9NzMiFFbPLDnKgjoF6Rhr9e';
+const EMPRESA_WALLET = import.meta.env.VITE_EMPRESA_WALLET_ADDRESS ?? '';
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -98,7 +98,6 @@ const Confirm = () => {
 
   const nullFields: string[] = [];
   if (!rule.monto_por_persona) nullFields.push('Monto por persona');
-  if (!rule.frecuencia) nullFields.push('Frecuencia');
   if (!rule.destinatarios || rule.destinatarios.length === 0) nullFields.push('Destinatarios');
 
   const montoInvalido = !!rule.monto_por_persona && rule.monto_por_persona <= 0;

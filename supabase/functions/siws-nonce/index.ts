@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers":
-    "Content-Type, Authorization, X-Client-Info, Apikey, X-FlowPay-Secret",
+    "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
 function getServiceClient() {
@@ -18,14 +18,6 @@ function getServiceClient() {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
-  const secret = req.headers.get("X-FlowPay-Secret");
-  if (secret !== Deno.env.get("FLOWPAY_SECRET")) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: corsHeaders,
-    });
-  }
 
   let publicKey: string;
   try {

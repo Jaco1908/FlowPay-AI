@@ -43,10 +43,7 @@ export function useSIWS() {
     try {
       const nonceRes = await fetch(SIWS_NONCE_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-FlowPay-Secret': import.meta.env.VITE_FLOWPAY_SECRET,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ publicKey: publicKey.toBase58() }),
       });
 
@@ -63,7 +60,6 @@ export function useSIWS() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-FlowPay-Secret': import.meta.env.VITE_FLOWPAY_SECRET,
         },
         body: JSON.stringify({
           publicKey: publicKey.toBase58(),

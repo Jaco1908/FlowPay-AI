@@ -15,7 +15,7 @@ interface AuthContextType {
   user: Employee | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  loginWithSIWS: (userId: string) => Promise<void>;
+  loginWithSIWS: (userId: string, token: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -31,6 +31,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (stored) {
         try {
           const cached = JSON.parse(stored);
+
+          // Verificar expiración del JWT antes de consultar la DB
+          if (cached.token) {
+            try {
+              const parts = cached.token.split('.');
+              if (parts.length === 3) {
+                const payload = JSON.parse(atob(parts[1]));
+                if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+                  localStorage.removeItem('flowpay_user');
+                  setLoading(false);
+                  return;
+                }
+              }
+            } catch { /* token malformado — se descarta abajo */ }
+          }
+
           const { data } = await supabase
             .from('employees')
             .select('id, nombre, email, wallet, clabe, role')
@@ -38,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .single();
           if (data) {
             setUser(data as Employee);
-            localStorage.setItem('flowpay_user', JSON.stringify(data));
+            localStorage.setItem('flowpay_user', JSON.stringify({ ...data, token: cached.token ?? null }));
           } else {
             localStorage.removeItem('flowpay_user');
           }
@@ -51,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     verifySession();
   }, []);
 
-  async function loginWithSIWS(userId: string) {
+  async function loginWithSIWS(userId: string, token: string) {
     const { data } = await supabase
       .from('employees')
       .select('id, nombre, email, wallet, clabe, role')
@@ -62,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const employee = data as Employee;
     setUser(employee);
-    localStorage.setItem('flowpay_user', JSON.stringify(employee));
+    localStorage.setItem('flowpay_user', JSON.stringify({ ...employee, token }));
   }
 
   async function login(email: string, password: string) {

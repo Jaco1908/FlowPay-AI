@@ -19,6 +19,7 @@ export default function InvoiceConfirm() {
   const [monedaFactura, setMonedaFactura] = useState('USD');
 
   const [missingMonto, setMissingMonto] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [invoiceId] = useState(() => `INV-${Date.now().toString(36).toUpperCase()}`);
   const previewDate  = new Date().toLocaleDateString('es', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -51,7 +52,8 @@ export default function InvoiceConfirm() {
   async function handleCreate() {
     if (!canSave) return;
     setSaving(true);
-    await supabase.from('invoices').insert({
+    setSaveError(null);
+    const { error } = await supabase.from('invoices').insert({
       invoice_id:     invoiceId,
       cliente:        cliente.trim(),
       monto:          montoNum,
@@ -61,7 +63,11 @@ export default function InvoiceConfirm() {
       status:         'pendiente',
       raw_text:       rule.textoOriginal,
     });
-    setSavedId(invoiceId);
+    if (error) {
+      setSaveError('No se pudo guardar la factura. Intenta de nuevo.');
+    } else {
+      setSavedId(invoiceId);
+    }
     setSaving(false);
   }
 
@@ -172,6 +178,13 @@ export default function InvoiceConfirm() {
                   className="fp-input w-full px-4 py-3 text-sm"
                 />
               </div>
+
+              {saveError && (
+                <div className="flex items-center gap-2 text-sm text-destructive">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {saveError}
+                </div>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <button

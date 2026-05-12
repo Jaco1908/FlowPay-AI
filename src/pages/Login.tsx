@@ -32,6 +32,12 @@ export default function Login() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    if (user) {
+      navigate(user.role === 'admin' ? '/' : '/employee', { replace: true });
+    }
+  }, [user, navigate]);
+
+  useEffect(() => {
     if (lockout > 0) {
       timerRef.current = setInterval(() => {
         setLockout(prev => {
@@ -47,11 +53,6 @@ export default function Login() {
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [lockout]);
-
-  if (user) {
-    navigate(user.role === 'admin' ? '/' : '/employee', { replace: true });
-    return null;
-  }
 
   const isLocked = lockout > 0;
 

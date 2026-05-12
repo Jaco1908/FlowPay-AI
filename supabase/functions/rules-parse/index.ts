@@ -4,8 +4,28 @@ import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey, X-FlowPay-Secret",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
+
+async function verifySessionJWT(token: string, secret: string): Promise<boolean> {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return false;
+    const [header, payload, sig] = parts;
+    const data = `${header}.${payload}`;
+    const keyBytes = new TextEncoder().encode(secret);
+    const cryptoKey = await crypto.subtle.importKey(
+      "raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["verify"]
+    );
+    const sigBytes = Uint8Array.from(atob(sig.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+    const valid = await crypto.subtle.verify("HMAC", cryptoKey, sigBytes, new TextEncoder().encode(data));
+    if (!valid) return false;
+    const { exp } = JSON.parse(atob(payload));
+    return !exp || exp > Math.floor(Date.now() / 1000);
+  } catch {
+    return false;
+  }
+}
 
 interface Employee {
   id: string;
@@ -195,8 +215,10 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const secret = Deno.env.get("FLOWPAY_SECRET");
-    if (secret && req.headers.get("X-FlowPay-Secret") !== secret) {
+    const jwtSecret = Deno.env.get("FLOWPAY_SECRET");
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    if (!jwtSecret || !token || !(await verifySessionJWT(token, jwtSecret))) {
       return new Response(JSON.stringify({ error: "No autorizado" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

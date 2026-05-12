@@ -42,21 +42,43 @@ function startOfToday(): string {
   return d.toISOString();
 }
 
+async function verifySessionJWT(token: string, secret: string): Promise<boolean> {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return false;
+    const [header, payload, sig] = parts;
+    const data = `${header}.${payload}`;
+    const keyBytes = new TextEncoder().encode(secret);
+    const cryptoKey = await crypto.subtle.importKey(
+      "raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["verify"]
+    );
+    const sigBytes = Uint8Array.from(atob(sig.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+    const valid = await crypto.subtle.verify("HMAC", cryptoKey, sigBytes, new TextEncoder().encode(data));
+    if (!valid) return false;
+    const { exp } = JSON.parse(atob(payload));
+    return !exp || exp > Math.floor(Date.now() / 1000);
+  } catch {
+    return false;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
-  // Verificación de seguridad: requiere X-FlowPay-Secret para llamadas internas (pg_cron)
-  const secret = Deno.env.get("FLOWPAY_CRON_SECRET") ?? "";
+  const cronSecret = Deno.env.get("FLOWPAY_CRON_SECRET") ?? "";
   const incomingSecret = req.headers.get("x-flowpay-secret") ?? "";
   const authHeader = req.headers.get("authorization") ?? "";
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const jwtSecret = Deno.env.get("FLOWPAY_SECRET") ?? "";
 
-  const validSecret = secret && incomingSecret === secret;
-  const validJwt = authHeader === `Bearer ${serviceKey}`;
+  const validCronSecret = cronSecret && incomingSecret === cronSecret;
+  const validServiceKey = authHeader === `Bearer ${serviceKey}`;
+  const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  const validSiwsJwt = bearerToken && jwtSecret ? await verifySessionJWT(bearerToken, jwtSecret) : false;
 
-  if (!validSecret && !validJwt) {
+  if (!validCronSecret && !validServiceKey && !validSiwsJwt) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
@@ -163,15 +185,17 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Actualiza last_executed_at
-    await supabase
-      .from("rules")
-      .update({ last_executed_at: now.toISOString() })
-      .eq("id", rule.id);
+    const anySuccess = ruleResults.some(r => r.status === "success");
 
-    // Si es única vez, desactiva la regla
-    if (isUnicaVez) {
-      await supabase.from("rules").update({ status: "completed" }).eq("id", rule.id);
+    if (anySuccess) {
+      await supabase
+        .from("rules")
+        .update({ last_executed_at: now.toISOString() })
+        .eq("id", rule.id);
+
+      if (isUnicaVez) {
+        await supabase.from("rules").update({ status: "paused" }).eq("id", rule.id);
+      }
     }
 
     results.push({ rule_id: rule.id, raw_text: rule.raw_text, executions: ruleResults });

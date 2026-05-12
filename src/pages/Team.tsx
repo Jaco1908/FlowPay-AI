@@ -27,6 +27,7 @@ export default function Team() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Employee | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     nombre: '', email: '', wallet: '', password: '', clabe: '', clabeConfirm: ''
@@ -117,12 +118,13 @@ export default function Team() {
     setDeleting(emp.id);
     const { error } = await supabase.from('employees').delete().eq('id', emp.id);
     if (error) {
-      alert('Error al eliminar: ' + error.message);
+      setDeleteError(error.message);
       setDeleting(null);
       return;
     }
     setEmployees(prev => prev.filter(e => e.id !== emp.id));
     setConfirmDelete(null);
+    setDeleteError(null);
     setDeleting(null);
   }
 
@@ -167,9 +169,12 @@ export default function Team() {
               <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
                 ¿Eliminar a <span className="text-foreground font-medium">{confirmDelete.nombre}</span>? Ya no podrá iniciar sesión ni recibir pagos automáticos.
               </p>
+              {deleteError && (
+                <p className="text-sm text-destructive mb-4">{deleteError}</p>
+              )}
               <div className="flex gap-3">
                 <button
-                  onClick={() => setConfirmDelete(null)}
+                  onClick={() => { setConfirmDelete(null); setDeleteError(null); }}
                   disabled={deleting === confirmDelete.id}
                   className="fp-btn-secondary flex-1 py-3 text-sm"
                 >

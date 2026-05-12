@@ -9,7 +9,7 @@ import Header from '@/components/Header';
 import { parseRule } from '@/api/rules/parse';
 import { supabase } from '@/lib/supabase';
 import { hashPassword } from '@/lib/crypto';
-import { resolveAmbiguousNames, updateTextWithResolvedNames } from '@/services/ambiguousNameResolver';
+import { updateTextWithResolvedNames } from '@/services/ambiguousNameResolver';
 import type { AmbiguousName, ParsedRule } from '@/types';
 
 const BASE58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -68,10 +68,6 @@ interface MissingField {
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 function parseAmbiguousError(message: string): AmbiguousName[] | null {
   const regex = /"([^"]+)"\s+puede\s+ser:\s*([^\.]+)\./gi;
@@ -407,58 +403,48 @@ const Index = () => {
     }
   }
 
-  function handleAmbiguousConfirm() {
+  async function handleAmbiguousConfirm() {
     if (!pendingParsed || !pendingParsed.ambiguousNames) return;
 
-    // Guardar las selecciones antes de limpiar
-    const selections = { ...ambiguousSelections };
-    
-    // Construir el texto actualizado
-    let updatedText = text;
-    const orderedNames = [...pendingParsed.ambiguousNames].sort((a, b) => b.nombre.length - a.nombre.length);
-    
-    for (const amb of orderedNames) {
-      const replacement = selections[amb.nombre];
-      if (replacement && replacement !== amb.nombre) {
-        const pattern = new RegExp(`\\b${amb.nombre}\\b`, 'gi');
-        updatedText = updatedText.replace(pattern, replacement);
-      }
-    }
-    
+    const updatedText = updateTextWithResolvedNames(
+      text,
+      pendingParsed.ambiguousNames,
+      ambiguousSelections,
+    );
+
     setText(updatedText);
     setShowAmbiguousModal(false);
     setPendingParsed(null);
     setAmbiguousSelections({});
-    
-    // Re-ejecutar análisis con el nuevo texto
+
     setLoading(true);
-    setTimeout(async () => {
-      try {
-        const parsed = await parseRule(updatedText.trim());
-        
-        if (parsed.intent === 'ayuda') {
-          setHelpMessage(parsed.mensaje_ayuda || HELP_DEFAULT);
-          setLoading(false);
-          return;
-        }
+    try {
+      const parsed = await parseRule(updatedText.trim());
 
-        const missing = getMissingFields(parsed);
-        if (missing.length > 0) {
-          setPendingParsed(parsed);
-          setMissingDataFields(missing);
-          setShowMissingDataModal(true);
-          setLoading(false);
-          return;
-        }
-
-        sessionStorage.setItem('parsedRule', JSON.stringify(parsed));
-        setAiResponse(parsed);
-        setLoading(false);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error al analizar la instrucción');
-        setLoading(false);
+      if (parsed.intent === 'ayuda') {
+        setHelpMessage(parsed.mensaje_ayuda || HELP_DEFAULT);
+        return;
       }
-    }, 100);
+
+      const missing = getMissingFields(parsed);
+      if (missing.length > 0) {
+        setPendingParsed(parsed);
+        setMissingDataFields(missing);
+        setShowMissingDataModal(true);
+        return;
+      }
+
+      sessionStorage.setItem('parsedRule', JSON.stringify(parsed));
+      setAiResponse(parsed);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al analizar la instrucción');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function updateMissingDataField(index: number, value: string) {
+    setMissingDataFields(prev => prev.map((f, i) => i === index ? { ...f, value } : f));
   }
 
   function updateForm(index: number, field: keyof MissingForm, value: string) {
@@ -489,18 +475,31 @@ const Index = () => {
     setCreatingUsers(true);
     for (const form of missingForms) {
       if (form.exists && form.employeeId) {
-        await supabase.from('employees')
+        const { error } = await supabase.from('employees')
           .update({ wallet: form.wallet.trim() })
           .eq('id', form.employeeId);
+        if (error) {
+          setFormErrors(`No se pudo actualizar la wallet de ${form.nombre}: ${error.message}`);
+          setCreatingUsers(false);
+          return;
+        }
       } else {
         const hashed = await hashPassword(form.password, form.email.toLowerCase().trim());
-        await supabase.from('employees').insert({
+        const { error } = await supabase.from('employees').insert({
           nombre: form.nombre.trim(),
           email: form.email.toLowerCase().trim(),
           wallet: form.wallet.trim() || null,
           password: hashed,
           role: 'employee',
         });
+        if (error) {
+          const msg = error.message.includes('duplicate')
+            ? `El correo ${form.email} ya está registrado en el sistema`
+            : `No se pudo crear el colaborador ${form.nombre}: ${error.message}`;
+          setFormErrors(msg);
+          setCreatingUsers(false);
+          return;
+        }
       }
     }
 

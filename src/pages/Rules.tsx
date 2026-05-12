@@ -74,6 +74,7 @@ const Rules = () => {
   const [toggling, setToggling] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Rule | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [runResult, setRunResult] = useState<RunResult | null>(null);
   const [view, setView] = useState<'list' | 'calendar'>('calendar');
@@ -99,6 +100,15 @@ const Rules = () => {
 
   useEffect(() => { fetchRules(); }, []);
 
+  function getSessionToken(): string {
+    try {
+      const stored = localStorage.getItem('flowpay_user');
+      return stored ? (JSON.parse(stored).token ?? '') : '';
+    } catch {
+      return '';
+    }
+  }
+
   async function runScheduler() {
     setRunning(true);
     setRunResult(null);
@@ -108,16 +118,21 @@ const Rules = () => {
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Authorization': `Bearer ${getSessionToken()}`,
             'Content-Type': 'application/json',
           },
         }
       );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Error del servidor (${res.status})`);
+      }
       const data = await res.json();
       setRunResult(data);
       await fetchRules();
-    } catch {
-      setRunResult({ processed: 0, results: [], error: 'Error de red al contactar el scheduler.' });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error de red al contactar el scheduler.';
+      setRunResult({ processed: 0, results: [], error: msg });
     } finally {
       setRunning(false);
     }
@@ -141,12 +156,13 @@ const Rules = () => {
     setDeleting(true);
     const { error } = await supabase.from('rules').delete().eq('id', rule.id);
     if (error) {
-      alert('Error al eliminar: ' + error.message);
+      setDeleteError(error.message);
       setDeleting(false);
       return;
     }
     setRules(prev => prev.filter(r => r.id !== rule.id));
     setConfirmDelete(null);
+    setDeleteError(null);
     setDeleting(false);
   }
 
@@ -172,9 +188,12 @@ const Rules = () => {
             <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
               ¿Eliminar la regla <span className="text-foreground font-medium">"{confirmDelete.raw_text}"</span>? El historial de pagos ejecutados se conservará.
             </p>
+            {deleteError && (
+              <p className="text-sm text-destructive mb-4">{deleteError}</p>
+            )}
             <div className="flex gap-3">
               <button
-                onClick={() => setConfirmDelete(null)}
+                onClick={() => { setConfirmDelete(null); setDeleteError(null); }}
                 disabled={deleting}
                 className="fp-btn-secondary flex-1 py-3 text-sm"
               >

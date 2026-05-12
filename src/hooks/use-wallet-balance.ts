@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
-const EMPRESA_WALLET = '6iLi5YmwUbtejobpafvYM9NzMiFFbPLDnKgjoF6Rhr9e';
+const EMPRESA_WALLET = import.meta.env.VITE_EMPRESA_WALLET_ADDRESS ?? '';
 
 export function useWalletBalance() {
   const [balance, setBalance] = useState<number | null>(null);
